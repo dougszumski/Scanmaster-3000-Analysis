@@ -2,4 +2,4 @@ The program is designed to process raw data streams from the scanmaster-3000 STM
 
 scanmaster_3000.py : The python script
 plat_seek.so : Python module generated with F2PY for finding plateaus in data
-
+plat_seek.f90 : Fortran module for locating plateaus in the data stream. 
