@@ -1278,7 +1278,10 @@ class controller:
 
     def recon_scan_info(self):
 
-        #Displays the nfo.txt for the dataset
+        # Displays the nfo.txt for the dataset
+
+        #TODO: There is a minor bug here, in that the program only looks in the current directory for nfo.txt
+        # If you're analysing data in a different folder to location of scanmaster it won't find the file. 
         if os.access('nfo.txt', os.F_OK):
     
             # Configure the data input parameters in a new window
