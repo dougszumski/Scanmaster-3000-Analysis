@@ -44,6 +44,7 @@ import shutil  # High level file from scipy import stats
 import os  # import command line for file operations
 from subprocess import call
 import string
+import cPickle
 
 # KDE stuff
 
@@ -263,7 +264,7 @@ def dat_input(start, finish, bcorfac):
 
         # Correct background offset
 
-        #TODO: Check the sdev of the background and reject if larger than the expect noise
+        # TODO: Check the sdev of the background and reject if larger than the expect noise
         # This will prevent spurious correction factors and help to get rid of dodgy scans
 
         i_dat_ls = back_correct(i_dat_ls, bcorfac)
@@ -1006,65 +1007,108 @@ class controller:
 
         self.datfillogi = IntVar()
 
-        # Set default values for variables
+        #Check to see if some select variables have been pickled:
 
-        self.stavar.set(1)
-        self.finvar.set(5)
-        self.bcorfac.set(0.20)
-        self.xfac.set(2.00)
-        self.plot_dat.set(0)
-        self.check_dat.set(0)
-        self.check_dat2.set(0)
-        self.auto_read.set(0)
+        try: 
+            open("settings")
+        except:
+            print "Settings file not found, using defaults."
+            # Set default values for variables
+        
+            # Resistor defaults
+            self.lowres.set(99559)  # Calibrated from resistor measurements, assumes output voltage is correct from STM
+            self.highres.set(91474235)  # Calibrated from resistor measurements, assumes output voltage is correct from STM
+            self.th_1.set(0.1)  # Ch2 is simply Ch1 x 10 so at this stage Ch2 is at 90% maximum and can take over
+            self.th_2.set(0.1)  # Around here the limiter turns off, plus a bit more to stop dodgy overlap
+            self.th_3.set(0.1)  # Ch3 is on and can take over
+            
+            #Data input
+            self.stavar.set(1)
+            self.finvar.set(5)
+            self.bcorfac.set(0.20)
+            self.xfac.set(2.00)
+            self.plot_dat.set(0)
+            self.check_dat.set(0)
+            self.check_dat2.set(0)
+            self.auto_read.set(0)
 
-        # Data filtering defaults:
+            # Data filtering defaults:
+            self.datfillogi.set(-1000)
 
-        self.datfillogi.set(-1000)
+            # KDE stuff:
+            self.kde_bandwidth.set(0.1)
+            self.kde_stop.set(4)
+            self.kde_points.set(1000)
+            
+            # STM/ADC parameters used for reconstructing distance defaults
+            self.sampsec.set(10000)
+            self.srange.set(4)
+            self.sduration.set(0.3)
 
-        # KDE stuff defaults:
+            # Contour plot parameter defaults
+            self.xmin_contour.set(0.00)
+            self.xmax_contour.set(5.0)
+            self.ymin_contour.set(-4.0)
+            self.ymax_contour.set(4.0)
+            self.xbin_contour.set(100)
+            self.ybin_contour.set(100)
 
-        self.kde_bandwidth.set(0.1)
-        self.kde_stop.set(4)
-        self.kde_points.set(1000)
+            # Plateau fitting parameters
+            self.plat_max_grad.set(50000.0)
+            self.background_tol.set(5)
+            self.max_plat_cur.set(10000.0)
+            self.max_points_plat.set(100)
+            self.fractional_plat_tol.set(0.20)
+            self.min_points_plat.set(30)
 
-        # Resistor defaults
+            #Chopper parameters
+            self.scan_u_th.set(4.0)
+            self.scan_l_th.set(0.009)
+            self.max_seg_len.set(3200)
+            self.min_seg_len.set(2200)
 
-        self.lowres.set(99559)  # Calibrated from resistor measurements, assumes output voltage is correct from STM
-        self.highres.set(91474235)  # Calibrated from resistor measurements, assumes output voltage is correct from STM
-        self.th_1.set(0.1)  # Ch2 is simply Ch1 x 10 so at this stage Ch2 is at 90% maximum and can take over
-        self.th_2.set(0.1)  # Around here the limiter turns off, plus a bit more to stop dodgy overlap
-        self.th_3.set(0.1)  # Ch3 is on and can take over
-
-        # STM/ADC parameters used for reconstructing distance defaults
-
-        self.sampsec.set(10000)
-        self.srange.set(4)
-        self.sduration.set(0.3)
-
-        # Contour plot parameter defaults
-
-        self.xmin_contour.set(0.00)
-        self.xmax_contour.set(5.0)
-        self.ymin_contour.set(-4.0)
-        self.ymax_contour.set(4.0)
-        self.xbin_contour.set(100)
-        self.ybin_contour.set(100)
-
-        # Plateau fitting parameters
-
-        self.plat_max_grad.set(50000.0)
-        self.background_tol.set(5)
-        self.max_plat_cur.set(10000.0)
-        self.max_points_plat.set(100)
-        self.fractional_plat_tol.set(0.20)
-        self.min_points_plat.set(30)
-
-        #Chopper parameters
-
-        self.scan_u_th.set(4.0)
-        self.scan_l_th.set(0.009)
-        self.max_seg_len.set(3200)
-        self.min_seg_len.set(2200)
+        else:
+            print "Loading custom settings from file 'settings'."
+            data = self.restoreData()
+            
+            #Now set all the variables. See the defaults section above for what they are
+            #TODO: This could be done in a 'cleaner way' by iterating over the variable dicionary returned by saveData()
+            self.lowres.set(data[ 'lowres'])  
+            self.highres.set(data[ 'highres'])  
+            self.th_1.set(data[ 'th_1'])  
+            self.th_2.set(data[ 'th_2']) 
+            self.th_3.set(data[ 'th_3']) 
+            self.stavar.set(data[ 'stavar'])  
+            self.finvar.set(data[ 'finvar'])  
+            self.bcorfac.set(data[ 'bcorfac'])  
+            self.xfac.set(data[ 'xfac'])  
+            self.plot_dat.set(data[ 'plot_dat'])  
+            self.check_dat.set(data[ 'check_dat'])  
+            self.check_dat2.set(data[ 'check_dat2'])  
+            self.auto_read.set(data[ 'auto_read'])  
+            self.datfillogi.set(data[ 'datfillogi'])  
+            self.kde_bandwidth.set(data[ 'kde_bandwidth'])  
+            self.kde_stop.set(data[ 'kde_stop'])  
+            self.kde_points.set(data[ 'kde_points'])  
+            self.sampsec.set(data[ 'sampsec'])  
+            self.srange.set(data[ 'srange'])  
+            self.sduration.set(data[ 'sduration'])  
+            self.xmin_contour.set(data[ 'xmin_contour'])  
+            self.xmax_contour.set(data[ 'xmax_contour'])  
+            self.ymin_contour.set(data[ 'ymin_contour'])  
+            self.ymax_contour.set(data[ 'ymax_contour'])  
+            self.xbin_contour.set(data[ 'xbin_contour'])  
+            self.ybin_contour.set(data[ 'ybin_contour'])  
+            self.plat_max_grad.set(data[ 'plat_max_grad'])  
+            self.background_tol.set(data[ 'background_tol'])  
+            self.max_plat_cur.set(data[ 'max_plat_cur'])  
+            self.max_points_plat.set(data[ 'max_points_plat'])  
+            self.fractional_plat_tol.set(data[ 'fractional_plat_tol'])  
+            self.min_points_plat.set(data[ 'min_points_plat'])  
+            self.scan_u_th.set(data[ 'scan_u_th'])  
+            self.scan_l_th.set(data[ 'scan_l_th'])  
+            self.max_seg_len.set(data[ 'max_seg_len'])  
+            self.min_seg_len.set(data[ 'min_seg_len'])  
 
         # Menu bar at the top of the main window
 
@@ -1160,12 +1204,70 @@ class controller:
                 underline=0, command=self.plateau_fitting_params)
         self.SettingsMenu.menu.add_command(label='Scan reconstruction',
                 underline=0, command=self.chopper_params)
+        self.SettingsMenu.menu.add_command(label='Save settings'
+                , underline=0, background='grey', activebackground='red'
+                , command=self.saveData)
         self.SettingsMenu['menu'] = self.SettingsMenu.menu
 
+    def saveData(self):
+
+        # Pickle a dictionary containing variables to be saved
+        # See the default settings above for what they do
+
+        data = {'lowres' : self.lowres.get(),
+                'highres' : self.highres.get(),
+                'th_1' : self.th_1.get(),
+                'th_2' : self.th_2.get(),
+                'th_3' : self.th_3.get(),
+                'stavar' : self.stavar.get(),
+                'finvar' : self.finvar.get(),
+                'bcorfac' : self.bcorfac.get(),
+                'xfac' : self.xfac.get(),
+                'plot_dat' : self.plot_dat.get(),
+                'check_dat' : self.check_dat.get(),
+                'check_dat2' : self.check_dat2.get(),
+                'auto_read' : self.auto_read.get(),
+                'datfillogi' : self.datfillogi.get(),
+                'kde_bandwidth' : self.kde_bandwidth.get(),
+                'kde_stop' : self.kde_stop.get(),
+                'kde_points' : self.kde_points.get(),
+                'sampsec' : self.sampsec.get(),
+                'srange' : self.srange.get(),
+                'sduration' : self.sduration.get(),
+                'xmin_contour' : self.xmin_contour.get(),
+                'xmax_contour' : self.xmax_contour.get(),
+                'ymin_contour' : self.ymin_contour.get(),
+                'ymax_contour' : self.ymax_contour.get(),
+                'xbin_contour' : self.xbin_contour.get(),
+                'ybin_contour' : self.ybin_contour.get(),
+                'plat_max_grad' : self.plat_max_grad.get(),
+                'background_tol' : self.background_tol.get(),
+                'max_plat_cur' : self.max_plat_cur.get(),
+                'max_points_plat' : self.max_points_plat.get(),
+                'fractional_plat_tol' : self.fractional_plat_tol.get(),
+                'min_points_plat' : self.min_points_plat.get(),
+                'scan_u_th' : self.scan_u_th.get(),
+                'scan_l_th' : self.scan_l_th.get(),
+                'max_seg_len' : self.max_seg_len.get(),
+                'min_seg_len' : self.min_seg_len.get(),
+                }
+
+        file = open("settings", 'w')
+        cPickle.dump(data, file)
+        file.close()
+        print 'Settings saved'
+
+    def restoreData(self):
+
+        # Return an unpickled dictionary with stored variables 
+        file = open("settings", 'r')
+        data = cPickle.load( file)
+        file.close()
+        return data
+ 
     def filename_browse(self):
 
         # Browse to select filename
-
         data.filename = askopenfilename(title='Select I(s) scan...',
                 filetypes=[('Text files', '*.txt'), ('All files', '*')])
 
@@ -1177,11 +1279,9 @@ class controller:
     def recon_scan_info(self):
 
         #Displays the nfo.txt for the dataset
-
         if os.access('nfo.txt', os.F_OK):
     
             # Configure the data input parameters in a new window
-
             self.recon_params = Toplevel()
             self.recon_params.title('Experiment notes')
             self.recon_frame = Frame(self.recon_params)
@@ -1900,7 +2000,7 @@ class controller:
 
 
 root = Tk()
-root.title('Scanmaster 3000: I(s) scan analyser v0.27')
+root.title('Scanmaster 3000 v0.28')
 
 egraph = egraph(root)
 controller = controller(root)
