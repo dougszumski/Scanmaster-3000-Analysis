@@ -22,6 +22,7 @@ import numpy as np
 import matplotlib.pylab as plt
 from scipy import linspace, polyval, polyfit, sqrt, stats, randn
 from pylab import plot, title, show , legend
+import sys
 
 test_res = 50808 #Ohms from Keithly source meter, on high accuracy mode (stable measurement)
 
@@ -39,6 +40,7 @@ def fileinput(filename):
 		ch1.append(float(line[1]))	
 		ch2.append(float(line[2]))	
 		ch3.append(float(line[3]))	
+	#print float(line[1]), float(line[2]), float(line[3]), float(line[4])
 	return ch0, ch1, ch2, ch3
 	infile.close
 
@@ -60,10 +62,17 @@ def slicer(data, minval, maxval):
 #Depending on the sweep rate the noise will probably show up on the HS channels.
 
 #This is the data file we are reading in. 
-ch0,ch1,ch2,ch3 = fileinput("output_1V.txt")
+ch0,ch1,ch2,ch3 = fileinput("output_10V_new.txt")
 
 maxloc = ch0.index(max(ch0)) #return the location of the maximum value
 minloc = ch0.index(min(ch0))
+
+#TODO: If the data is non-contiguous this won't work and you'll get an error. 
+#Basically look through the calibration data and delete the bit after the sweep.
+
+if (minloc > maxloc):
+	print "ERROR: Calibration data is non-contiguous. Manually remove 'jump' to continue."
+	sys.exit(0)
 
 ch0 = ch0[minloc:maxloc]
 ch1 = ch1[minloc:maxloc]
