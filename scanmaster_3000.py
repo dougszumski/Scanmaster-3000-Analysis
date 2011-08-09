@@ -18,6 +18,10 @@
 #     along with this program; if not, write to the Free Software
 #     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
+#Updates are posted at: https://github.com/dougszumski/Scanmaster-3000
+#Git repo: git://github.com/dougszumski/Scanmaster-3000.git
+#For push access contact Doug
+
 # For embedded graph:
 
 import matplotlib
@@ -32,7 +36,7 @@ import sys
 from Tkinter import *
 from tkFileDialog import askopenfilename
 from tkColorChooser import askcolor
-from tkMessageBox import askquestion, showerror
+from tkMessageBox import askquestion, showerror, showinfo
 from tkSimpleDialog import askfloat
 from tkMessageBox import askokcancel
 from FileDialog import LoadFileDialog
@@ -151,33 +155,35 @@ def contour_plot():
         for value in i_dat:
             i_list.append(np.log10(abs(value)))
             #i_list.append(abs(value)) #uncomment for linear plot
+    if (len(i_list) < 1):
+            self.error = showerror('Disaster', 'No data in memory')
+    else:
+        # Generate list of all distances. This list will be the same length as the current list and therefore
+        # the indices will be directly related.
 
-    # Generate list of all distances. This list will be the same length as the current list and therefore
-    # the indices will be directly related.
+        s_list = []
+        for s_dat in data.s_dat_all_ls:
+            for value in s_dat:
+                s_list.append(value)
 
-    s_list = []
-    for s_dat in data.s_dat_all_ls:
-        for value in s_dat:
-            s_list.append(value)
+        # Plot the 2D histogram
 
-    # Plot the 2D histogram
-
-    (H, xedges, yedges) = np.histogram2d(i_list, s_list,
-            bins=(controller.ybin_contour.get(),
-            controller.xbin_contour.get()),
-            range=[[controller.ymin_contour.get(),
-            controller.ymax_contour.get()],
-            [controller.xmin_contour.get(),
-            controller.xmax_contour.get()]], normed=True)
-    (H.shape, xedges.shape, yedges.shape)
-    extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]  # Don't forget -1 means the last item in the list!
-    plt.imshow(H, origin='lower', extent=extent, interpolation='nearest')
-    cb = plt.colorbar()
-    cb.set_label('counts (normalised)')
-    plt.title('I(s) scan 2D histogram')
-    plt.xlabel('Distance (nm)')
-    plt.ylabel('log10[current (nA)]')
-    plt.show()
+        (H, xedges, yedges) = np.histogram2d(i_list, s_list,
+                bins=(controller.ybin_contour.get(),
+                controller.xbin_contour.get()),
+                range=[[controller.ymin_contour.get(),
+                controller.ymax_contour.get()],
+                [controller.xmin_contour.get(),
+                controller.xmax_contour.get()]], normed=True)
+        (H.shape, xedges.shape, yedges.shape)
+        extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]  # Don't forget -1 means the last item in the list!
+        plt.imshow(H, origin='lower', extent=extent, interpolation='nearest')
+        cb = plt.colorbar()
+        cb.set_label('counts (normalised)')
+        plt.title('I(s) scan 2D histogram')
+        plt.xlabel('Distance (nm)')
+        plt.ylabel('log10[current (nA)]')
+        plt.show()
 
 
 def plat_seeker(current_trace):
@@ -511,7 +517,7 @@ def rawfileInput(filename):
         i_list_hs_x10.append(a[3])
     print 'Data loaded...'
     return (i_list_ls_x1, i_list_ls_x10, i_list_hs_x1, i_list_hs_x10)
-
+    infile.close
 
 def groupAvg(data):
 
@@ -679,6 +685,7 @@ def tea_break_maker():
 
     # Deals with reading all raw data files from the ADC and splitting them into I(s) scans using chopper
     # Tea break maker tries to prevent laziness by asking some questions about the experiment before processing the data
+
     # After these have been answered they'll be plenty of time for a tea break.
 
     questions = [
@@ -701,13 +708,18 @@ def tea_break_maker():
     os.chdir(os.path.abspath('raw'))
     for (path, dirs, files) in os.walk(os.getcwd()):
         for filename in files:
-
             # For each precious measurement we must have a description
-
             questions.append(filename
                              + " details (bias/setpoint/other)	:")
+
+    #Generate some dialogue to guide/warn the user
+    if (len(files) < 1):
+        error = showerror('Disaster', 'No data found in ../raw')
+        return
+    info = showinfo('Scan reconstructor', 'Refer to the terminal')
+
     answers = []
-    os.chdir(os.pardir)  # 'cd..#
+    os.chdir(os.pardir)  # 'cd..
 
     # Now ask the questions
     if not os.access('nfo.txt', os.F_OK):
@@ -924,11 +936,9 @@ class egraph:
 class controller:
 
     # This generates the main GUI and contains all variables the use can modify
-
     def __init__(self, myParent):
 
         # Constants for controlling layout
-
         button_width = 15
         button_padx = '2m'
         button_pady = '1m'
@@ -938,13 +948,11 @@ class controller:
         buttons_frame_ipady = '1m'
 
         # Initiate Variables
-
         self.stavar = IntVar()
         self.finvar = IntVar()
         self.bcorfac = DoubleVar()
 
         # Data processing variables
-
         self.bkgnd_tol = IntVar()
         self.xfac = DoubleVar()
         self.plot_dat = IntVar()
@@ -956,30 +964,25 @@ class controller:
         self.auto_read = IntVar()
 
          # KDE
-
         self.kde_bandwidth = DoubleVar()
         self.kde_stop = IntVar()
         self.kde_points = IntVar()
 
          # Resistor division
-
         self.lowres = DoubleVar()
         self.highres = DoubleVar()
 
         # Stitch volages
-
         self.th_1 = DoubleVar()
         self.th_2 = DoubleVar()
         self.th_3 = DoubleVar()
 
          # STM/ADC variables sampsec, srange, sduration
-
         self.sampsec = IntVar()
         self.srange = DoubleVar()
         self.sduration = DoubleVar()
 
         # Contour plot parameters
-
         self.xmin_contour = DoubleVar()
         self.xmax_contour = DoubleVar()
         self.ymin_contour = DoubleVar()
@@ -988,7 +991,6 @@ class controller:
         self.ybin_contour = IntVar()
 
         # Plateau fitting parameters
-
         self.plat_max_grad = DoubleVar()
         self.background_tol = IntVar()
         self.max_plat_cur = DoubleVar()
@@ -997,14 +999,12 @@ class controller:
         self.min_points_plat = IntVar()
 
         #Chopper parameters
-
         self.scan_u_th = DoubleVar()
         self.scan_l_th = DoubleVar()
         self.max_seg_len = IntVar()
         self.min_seg_len = IntVar()
 
         # Data filtering
-
         self.datfillogi = IntVar()
 
         #Check to see if some select variables have been pickled:
@@ -1204,10 +1204,12 @@ class controller:
                 underline=0, command=self.plateau_fitting_params)
         self.SettingsMenu.menu.add_command(label='Scan reconstruction',
                 underline=0, command=self.chopper_params)
+        self.SettingsMenu.menu.add('separator')
         self.SettingsMenu.menu.add_command(label='Save settings'
                 , underline=0, background='grey', activebackground='red'
                 , command=self.saveData)
         self.SettingsMenu['menu'] = self.SettingsMenu.menu
+
 
     def saveData(self):
 
@@ -1301,23 +1303,19 @@ class controller:
         else:
 
             #Display an error if file isn't there
-
             self.error = showerror('Disaster', 'nfo.txt not found')
 
     def chopper_params(self): #MARKER
 
         # Configure chopper parameters
-
         self.chopper_params = Toplevel()
         self.chopper_params.title('Chopper parameters')
 
         # Put the parameters in a frame
-
         self.chopper_frame = Frame(self.chopper_params)
         self.chopper_frame.pack(side=TOP, padx=50, pady=5)
 
         # Draw the controls; see the text for what they do
-
         Label(self.chopper_frame, text='Minimum segment length (points)').grid(row=0,
                 column=0)
         self.minseglength = Spinbox(
@@ -1379,19 +1377,16 @@ class controller:
     def quadchannel_params(self):
 
         # Configure the quad channel system in a new window
-
         self.qc_params = Toplevel()
         self.qc_params.title('Quad channel module calibration')
 
         # Put the parameters in frames
-
         self.resistance_frame = Frame(self.qc_params)
         self.resistance_frame.pack(side=TOP, padx=70, pady=5)
         self.cutoff_frame = Frame(self.qc_params)
         self.cutoff_frame.pack(side=TOP, padx=70, pady=5)
 
         # Feedback resistor settings
-
         Label(self.resistance_frame, text='Feedback resistance (L):'
               ).grid(row=0, column=0)
 
@@ -1421,7 +1416,6 @@ class controller:
             ).grid(row=1, column=1)
 
         # Cutoff voltage settings for channel switchover
-
         Label(self.cutoff_frame, text='Cutoff voltages (V)'
               ).grid(row=0, column=0)
 
@@ -1470,17 +1464,14 @@ class controller:
     def kde_params(self):
 
         # Configure the KDE parameters in a new window
-
         self.kde_params = Toplevel()
         self.kde_params.title('KDE parameters')
 
         # Put the parameters in a frame
-
         self.kde_frame = Frame(self.kde_params)
         self.kde_frame.pack(side=TOP, pady=5)
 
         # KDE parameters
-
         Scale(
             self.kde_frame,
             label='KDE bandwidth:',
@@ -1523,17 +1514,14 @@ class controller:
     def data_filter(self):
 
         # Configure the data input parameters in a new window
-
         self.data_filter = Toplevel()
         self.data_filter.title('Data filtering')
 
         # Put the parameters in a frame
-
         self.data_frame = Frame(self.data_filter)
         self.data_frame.pack(side=TOP, padx=50, pady=5)
 
         # Draw the controls; see the text for what they do
-
         Label(self.data_frame, text='Cumulative log(I) threshold:'
               ).grid(row=0, column=0)
         self.start = Spinbox(
@@ -1551,17 +1539,14 @@ class controller:
     def data_params(self):
 
         # Configure the data input parameters in a new window
-
         self.data_params = Toplevel()
         self.data_params.title('Data parameters')
 
         # Put the parameters in a frame
-
         self.data_frame = Frame(self.data_params)
         self.data_frame.pack(side=TOP, padx=50, pady=5)
 
         # Draw the controls; see the text for what they do
-
         Label(self.data_frame, text='Manual file input range start:'
               ).grid(row=0, column=0)
         self.start = Spinbox(
@@ -1621,17 +1606,14 @@ class controller:
     def adc_params(self):
 
         # Configure the ADC / STM parameters
-
         self.adc_params = Toplevel()
         self.adc_params.title('ADC / STM parameters')
 
         # Put the parameters in a frame
-
         self.adc_frame = Frame(self.adc_params)
         self.adc_frame.pack(side=TOP, padx=50, pady=5)
 
         # Draw the controls; see the text for what they do
-
         Label(self.adc_frame, text='Samples per second:').grid(row=0,
                 column=0)
         self.sampsecond = Spinbox(
@@ -1677,17 +1659,14 @@ class controller:
     def contour_params(self):
 
         # Configure the contour parameters
-
         self.contour_params = Toplevel()
         self.contour_params.title('2D histogram parameters')
 
         # Put the parameters in a frame
-
         self.contour_frame = Frame(self.contour_params)
         self.contour_frame.pack(side=TOP, padx=50, pady=5)
 
         # Draw the controls; see the text for what they do
-
         Label(self.contour_frame, text='x-axis minimum:').grid(row=0,
                 column=0)
         self.xmin = Spinbox(
@@ -1775,17 +1754,14 @@ class controller:
     def plateau_fitting_params(self):
 
         # Configure the contour parameters
-
         self.plateau_fitting_params = Toplevel()
         self.plateau_fitting_params.title('Plateau fitting parameters')
 
         # Put the parameters in a frame
-
         self.plateau_fitting_frame = Frame(self.plateau_fitting_params)
         self.plateau_fitting_frame.pack(side=TOP, padx=50, pady=5)
 
         # Draw the controls; see the text for what they do
-
         Label(self.plateau_fitting_frame,
               text='Minimum data points per plateau:').grid(row=0,
                 column=0)
@@ -1879,7 +1855,6 @@ class controller:
     def kde_plot(self):
 
         # Fetch KDE parameters from control widgets
-
         kde_bandwidth = self.kde_bandwidth.get()
         kde_start = kde_bandwidth  # The lowest the KDE start can go
         kde_stop = self.kde_stop.get()
@@ -1887,7 +1862,6 @@ class controller:
 
         # Plot KDE function and read all current data to a single list
         # Initialse current list and append currents from individual files
-
         i_list = []
         for reading in data.i_dat_all_combined:
             for value in reading:
@@ -1899,6 +1873,10 @@ class controller:
                     i_list.append(np.log10(value))
         print 'Lists appended, found:', len(i_list), 'data points.'
 
+        if (len(i_list) < 1):
+            self.error = showerror('Disaster', 'No data in memory')
+            return
+
         # Fit KDE and setup plot
         # x = np.linspace(min(i_list),max(i_list),kde_points)
         # haa = statistics.bandwidth(i_list, kernel='Epanechnikov')
@@ -1909,9 +1887,7 @@ class controller:
         # plot_y_lim = ( max(z) ) * 1.1
         # plot_y_lim = 0.12
         # plt.xscale('log')
-
         plt.hist(i_list, bins=500, facecolor='black', normed=1)
-
         # qc= 7.74
         # oc= 7.08....
         # plt.axvline(np.log10(qc), c='g')
@@ -1923,13 +1899,10 @@ class controller:
         # plt.plot(x, z,'b', label='KDE', linewidth=3)
         # plt.axis([0, kde_stop, 0, plot_y_lim])
         # plt.legend()
-
         plt.grid()
         plt.ylabel('Density', fontsize=14)
         plt.xlabel('log_10[current (nanoamps)]', fontsize=14)
-
         # plt.title('Molecular conductance: 0 degrees', fontsize=16)
-
         plt.show()
 
     def linear_data_plot(self):
@@ -1942,6 +1915,11 @@ class controller:
                 # i_list.append(value)
                 if ( (value > 0) and (value < 0.5) ):
                     i_list.append(value)
+        
+        if (len(i_list) < 1):
+            self.error = showerror('Disaster', 'No data in memory')
+            return
+
         print 'Lists appended, found:', len(i_list), 'data points.'
         plt.hist(i_list, bins=2000, facecolor='black', normed=1)
         plt.grid()
@@ -1951,28 +1929,25 @@ class controller:
 
     def readfiles(self):
 
+        if (len(data.filename) < 1):
+            self.error = showerror('Disaster', 'Input folder not defined')
+            return
         # Reset the new file counter so autoprocessed / manually processed files are labelled
         # from zero everytime.
-
         data.file_newnum = 0
-
         # Set the number of files to read in automatically
-
         auto_read = controller.auto_read.get()
 
         if auto_read == 1:
 
             # Automatically set file input range if so desired by the user
-
             target_folder = data.filename[0:string.rfind(data.filename, '/')]
 
             # Save the current working directory
-
             cwd_bak = os.getcwd()
 
             # Have a poke around the user selected data directory for the number of files
             # which must be sequentially numbered
-
             os.chdir(target_folder)
             filenumber_list = []
             for (path, dirs, files) in os.walk(os.getcwd()):
@@ -1982,12 +1957,9 @@ class controller:
             finish = max(filenumber_list)
 
             # Go back to the current working directory
-
             os.chdir(cwd_bak)
         else:
-
             # Use the default or user set input range
-
             start = int(self.stavar.get())
             finish = int(self.finvar.get())
 
@@ -1996,14 +1968,13 @@ class controller:
         print 'End of file input'
 
     def importdata(self):
-
+        
         # Needs to call tea break maker
-
         tea_break_maker()
 
 
 root = Tk()
-root.title('Scanmaster 3000 v0.28')
+root.title('Scanmaster 3000 v0.29')
 
 egraph = egraph(root)
 controller = controller(root)
