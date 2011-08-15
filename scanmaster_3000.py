@@ -64,47 +64,31 @@ import plat_seek
 
 
 class data:
-
-    # Sampling distance interval - calculated in scaninput for each file
-
-    interval = 0.00
-
-    # Four current channels from the quad amp
-
-    i_dat_all_ls = []
-    i_dat_all_hs = []
-    i10_dat_all_ls = []
-    i10_dat_all_hs = []
-
-    # Plateau data
-
-    plat_dat_ls = []
-
-    # The recombined current data
-
-    i_dat_all_combined = []
-
-    # Reconstructed spatial array to go with all current measurements
-
-    s_dat_all_ls = []
-
-    # The current working filename
-
-    filename = []
-
-    # The current file output number (for numbering selected data saved to new file)
-
-    file_newnum = 0
-
-    # Filtered data used in linear regression fitting
-
-    i_dat_filtered = []
-    s_dat_filtered = []
-
-    # Linear regression related stuff for plotting
-
-    polyfit_rescaled = []
-    err = 0.00  # Error on least squares fit for linear reg.
+    #Initialise a load of lists / variables for global use
+    def __init__(self):
+        # Sampling distance interval - calculated in scaninput for each file
+        self.interval = 0.00
+        # Four current channels from the quad amp
+        self.i_dat_all_ls = []
+        self.i_dat_all_hs = []
+        self.i10_dat_all_ls = []
+        self.i10_dat_all_hs = []
+        # Plateau data
+        self.plat_dat_ls = []
+        # The recombined current data
+        self.i_dat_all_combined = []
+        # Reconstructed spatial array to go with all current measurements
+        self.s_dat_all_ls = []
+        # The current working filename
+        self.filename = []
+        # The current file output number (for numbering selected data saved to new file)
+        self.file_newnum = 0
+        # Filtered data used in linear regression fitting
+        self.i_dat_filtered = []
+        self.s_dat_filtered = []
+        # Linear regression related stuff for plotting
+        self.polyfit_rescaled = []
+        self.err = 0.00  # Error on least squares fit for linear reg.
 
 
 def scaninput(name):
@@ -1925,19 +1909,6 @@ class controller:
         # qc= 7.74
         # oc= 7.08....
         # plt.axvline(np.log10(qc), def __init__(self, myParent):
-        #Deal with different screen resolutions, assumes res won't be lower than XGA
-	if root.winfo_screenwidth() == 1024:
-		#Low res so downsize figures
-        	self.f = Figure(figsize=(10, 7), dpi=80)
-	else:
-		#This is ideal for SXGA +. 
-		self.f = Figure(figsize=(14, 9), dpi=80)
-        self.ax = self.f.add_subplot(131)
-        self.ax2 = self.f.add_subplot(132)
-        self.ax3 = self.f.add_subplot(133)
-        self.canvas = FigureCanvasTkAgg(self.f, master=myParent)
-        self.canvas.show()
-        self.canvas.get_tk_widget().pack(side=BOTTOM)  # , fill=BOTH, expand=1)c='g')
         # plt.axvline(oc, c='r')
         # plt.axvline(oc*2, c='r')
         # plt.axvline(oc*3, c='r')
@@ -2021,7 +1992,7 @@ class controller:
 
 
 root = Tk()
-root.title('Scanmaster 3000 v0.31')
+root.title('Scanmaster 3000 v0.32')
 
 egraph = egraph(root)
 controller = controller(root)
