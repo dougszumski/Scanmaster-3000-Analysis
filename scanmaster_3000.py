@@ -184,6 +184,8 @@ def contour_plot():
 
 def export_current_data():
     # Writes current array to file for external analysis
+    # TODO: Could be useful to have the option to choose:
+    #       log of current, sorted current...
     
     #Start by assembling the current list
     i_list = []
