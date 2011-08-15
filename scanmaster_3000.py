@@ -846,9 +846,15 @@ class egraph:
 
     # Plots embedded matplotlib graphs in main window
     # NOTE: To edit the x,y range of the plots change xmin, xmax, ymin, ymax below
-
     def __init__(self, myParent):
-        self.f = Figure(figsize=(14, 9), dpi=80)
+        #Deal with different screen resolutions
+        if root.winfo_screenwidth() <= 1024:
+            #Low res so downsize figures, ideal for XGA, but no smaller (unlikely!)
+            self.f = Figure(figsize=(10, 7), dpi=80)
+        else:
+            #This is fine for SXGA and higher
+            self.f = Figure(figsize=(14, 9), dpi=80)
+        #Add the subplots
         self.ax = self.f.add_subplot(131)
         self.ax2 = self.f.add_subplot(132)
         self.ax3 = self.f.add_subplot(133)
@@ -1890,7 +1896,20 @@ class controller:
         plt.hist(i_list, bins=500, facecolor='black', normed=1)
         # qc= 7.74
         # oc= 7.08....
-        # plt.axvline(np.log10(qc), c='g')
+        # plt.axvline(np.log10(qc), def __init__(self, myParent):
+        #Deal with different screen resolutions, assumes res won't be lower than XGA
+	if root.winfo_screenwidth() == 1024:
+		#Low res so downsize figures
+        	self.f = Figure(figsize=(10, 7), dpi=80)
+	else:
+		#This is ideal for SXGA +. 
+		self.f = Figure(figsize=(14, 9), dpi=80)
+        self.ax = self.f.add_subplot(131)
+        self.ax2 = self.f.add_subplot(132)
+        self.ax3 = self.f.add_subplot(133)
+        self.canvas = FigureCanvasTkAgg(self.f, master=myParent)
+        self.canvas.show()
+        self.canvas.get_tk_widget().pack(side=BOTTOM)  # , fill=BOTH, expand=1)c='g')
         # plt.axvline(oc, c='r')
         # plt.axvline(oc*2, c='r')
         # plt.axvline(oc*3, c='r')
