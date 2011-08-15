@@ -34,7 +34,7 @@ import sys
 # Dialogue
 
 from Tkinter import *
-from tkFileDialog import askopenfilename
+from tkFileDialog import askopenfilename, asksaveasfile
 from tkColorChooser import askcolor
 from tkMessageBox import askquestion, showerror, showinfo
 from tkSimpleDialog import askfloat
@@ -64,8 +64,6 @@ import plat_seek
 
 
 class data:
-
-    # Data container for variables / arrays used globally
 
     # Sampling distance interval - calculated in scaninput for each file
 
@@ -156,34 +154,55 @@ def contour_plot():
             i_list.append(np.log10(abs(value)))
             #i_list.append(abs(value)) #uncomment for linear plot
     if (len(i_list) < 1):
-            self.error = showerror('Disaster', 'No data in memory')
-    else:
-        # Generate list of all distances. This list will be the same length as the current list and therefore
-        # the indices will be directly related.
+        error = showerror('Error', 'No data in memory')
+        return
 
-        s_list = []
-        for s_dat in data.s_dat_all_ls:
-            for value in s_dat:
-                s_list.append(value)
+    # Generate list of all distances. This list will be the same length as the current list and therefore
+    # the indices will be directly related.
+    s_list = []
+    for s_dat in data.s_dat_all_ls:
+        for value in s_dat:
+            s_list.append(value)
 
-        # Plot the 2D histogram
+    # Plot the 2D histogram
+    (H, xedges, yedges) = np.histogram2d(i_list, s_list,
+            bins=(controller.ybin_contour.get(),
+            controller.xbin_contour.get()),
+            range=[[controller.ymin_contour.get(),
+            controller.ymax_contour.get()],
+            [controller.xmin_contour.get(),
+            controller.xmax_contour.get()]], normed=True)
+    (H.shape, xedges.shape, yedges.shape)
+    extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]  # Don't forget -1 means the last item in the list!
+    plt.imshow(H, origin='lower', extent=extent, interpolation='nearest')
+    cb = plt.colorbar()
+    cb.set_label('counts (normalised)')
+    plt.title('I(s) scan 2D histogram')
+    plt.xlabel('Distance (nm)')
+    plt.ylabel('log10[current (nA)]')
+    plt.show()
 
-        (H, xedges, yedges) = np.histogram2d(i_list, s_list,
-                bins=(controller.ybin_contour.get(),
-                controller.xbin_contour.get()),
-                range=[[controller.ymin_contour.get(),
-                controller.ymax_contour.get()],
-                [controller.xmin_contour.get(),
-                controller.xmax_contour.get()]], normed=True)
-        (H.shape, xedges.shape, yedges.shape)
-        extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]  # Don't forget -1 means the last item in the list!
-        plt.imshow(H, origin='lower', extent=extent, interpolation='nearest')
-        cb = plt.colorbar()
-        cb.set_label('counts (normalised)')
-        plt.title('I(s) scan 2D histogram')
-        plt.xlabel('Distance (nm)')
-        plt.ylabel('log10[current (nA)]')
-        plt.show()
+def export_current_data():
+    # Writes current array to file for external analysis
+    
+    #Start by assembling the current list
+    i_list = []
+    for i_dat in data.i_dat_all_combined:
+        for value in i_dat:
+            i_list.append(abs(value))
+
+    #Check it's got data in, otherwise flag an error
+    if (len(i_list) < 1):
+        error = showerror('Error', 'No data in memory')
+        return
+
+    #Write it to file 
+    FILE = asksaveasfile(mode='w', title='Save current list as...')
+    if FILE:
+        for value in i_list:
+            FILE.write('%s \n' % value)
+        info = showinfo('Notice', 'File saved')
+        FILE.close()
 
 
 def plat_seeker(current_trace):
@@ -943,6 +962,9 @@ class controller:
 
     # This generates the main GUI and contains all variables the use can modify
     def __init__(self, myParent):
+    
+        #Save the root path of the gui
+        root_path = os.getcwd() 
 
         # Constants for controlling layout
         button_width = 15
@@ -1155,6 +1177,10 @@ class controller:
         self.ScanAnalysis.menu.add_command(label='Read scans to memory'
                 , underline=0, background='grey', activebackground='red'
                 , command=self.readfiles)
+        #self.ScanAnalysis.menu.add('separator')
+        self.ScanAnalysis.menu.add_command(label='Export current list to file'
+                , underline=0, background='grey', activebackground='green'
+                , command=export_current_data)
         self.ScanAnalysis.menu.add('separator')
         self.ScanAnalysis.menu.add_checkbutton(label='Read all scans in folder'
                 , underline=0, variable=self.auto_read)
@@ -1309,7 +1335,7 @@ class controller:
         else:
 
             #Display an error if file isn't there
-            self.error = showerror('Disaster', 'nfo.txt not found')
+            self.error = showerror('Error', 'nfo.txt not found')
 
     def chopper_params(self): #MARKER
 
@@ -1880,7 +1906,7 @@ class controller:
         print 'Lists appended, found:', len(i_list), 'data points.'
 
         if (len(i_list) < 1):
-            self.error = showerror('Disaster', 'No data in memory')
+            self.error = showerror('Error', 'No data in memory')
             return
 
         # Fit KDE and setup plot
@@ -1936,7 +1962,7 @@ class controller:
                     i_list.append(value)
         
         if (len(i_list) < 1):
-            self.error = showerror('Disaster', 'No data in memory')
+            self.error = showerror('Error', 'No data in memory')
             return
 
         print 'Lists appended, found:', len(i_list), 'data points.'
@@ -1949,7 +1975,7 @@ class controller:
     def readfiles(self):
 
         if (len(data.filename) < 1):
-            self.error = showerror('Disaster', 'Input folder not defined')
+            self.error = showerror('Error', 'Input folder not defined')
             return
         # Reset the new file counter so autoprocessed / manually processed files are labelled
         # from zero everytime.
@@ -1993,7 +2019,7 @@ class controller:
 
 
 root = Tk()
-root.title('Scanmaster 3000 v0.29')
+root.title('Scanmaster 3000 v0.31')
 
 egraph = egraph(root)
 controller = controller(root)
