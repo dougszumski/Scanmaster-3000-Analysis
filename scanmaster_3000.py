@@ -117,10 +117,10 @@ def scaninput(name):
     position = 0.00
     for line in lines:
         line = line.split()
-        i_dat_ls.append(abs(float(line[0])))  # ignore current sign, correct for resistor /v
-        i10_dat_ls.append(abs(float(line[1])))
-        i_dat_hs.append(abs(float(line[2])))
-        i10_dat_hs.append(abs(float(line[3])))
+        i_dat_ls.append((float(line[0])))  # ignore current sign, correct for resistor /v
+        i10_dat_ls.append((float(line[1])))
+        i_dat_hs.append((float(line[2])))
+        i10_dat_hs.append((float(line[3])))
         s_dat_ls.append(position)
         position += data.interval
     return (i_dat_ls, i10_dat_ls, i_dat_hs, i10_dat_hs, s_dat_ls)
@@ -175,7 +175,7 @@ def export_current_data():
     i_list = []
     for i_dat in data.i_dat_all_combined:
         for value in i_dat:
-            i_list.append(abs(value))
+            i_list.append(value)
 
     #Check it's got data in, otherwise flag an error
     if (len(i_list) < 1):
@@ -238,14 +238,11 @@ def dat_input(start, finish, bcorfac):
     # by averaging over the final fraction of the data set in the GUI, then appends the I(s) data to a list
 
     file_prefix = data.filename[0:-8]  # includes file path 4 digits
-
     # file_prefix = data.filename[0:-7] #includes file path 3 digits
-
     file_ext = '.txt'
     file_number = data.filename[-8:-4]  # 4 digitis
-
     # file_number = data.filename[-7:-4] # 3 digits
-
+    #FIXME: Delete: initiliaised in the data class
     data.i_dat_all_ls = []  # current
     data.i10_dat_all_ls = []
     data.i_dat_all_hs = []
@@ -254,93 +251,81 @@ def dat_input(start, finish, bcorfac):
     data.i_dat_all_combined = []
     print 'Reading files...'
     for i in range(start, finish + 1):
-
         # Generate filename
-
         auto_name = file_prefix + str(i).zfill(4) + file_ext  # 4 digits
-
         # auto_name = file_prefix + str(i).zfill(3) + file_ext #3digits
-
         print 'Reading...', auto_name
 
         #File prefix for filtered saved directory, extracted from the current directory
-        
         temp = auto_name[0:string.rfind(auto_name, '/')]
         savedir = temp[string.rfind(temp, '/')+1:len(temp)]
 
         # Read in data from file
-
         (i_dat_ls, i10_dat_ls, i_dat_hs, i10_dat_hs, s_dat_ls) = \
             scaninput(auto_name)
 
-        # Correct background offset
+        # Work out where to chop the channels whilst the data is stored as a voltage
+        # Threshold set from the GUI: Normally these are 0.1V 
+        th_1 = controller.th_1.get()
+        th_2 = controller.th_2.get()
+        th_3 = controller.th_3.get() 
 
-        # TODO: Check the sdev of the background and reject if larger than the expect noise
-        # This will prevent spurious correction factors and help to get rid of dodgy scans
+        #Get the resistor values
+        i_ls_res = int(controller.lowres.get())
+        i_hs_res = int(controller.highres.get())
+        scale = 1e9  # convert to nanoamps
 
+        #Figure out if the scan is negative or not, using sum for average and invert if it is
+        if (sum(i_dat_ls) < 0.0):
+            #Invert the measurement
+            for i in range(len(i_dat_ls)):
+                i_dat_ls[i] = i_dat_ls[i] * -1.0 
+                i10_dat_ls[i] = i10_dat_ls[i] * -1.0
+                i_dat_hs[i] = i_dat_hs[i] * -1.0
+                i10_dat_hs[i] = i10_dat_hs[i] * -1.0
+
+        #Make a copy of the list (note to self: direct assignment creates a pointer to the list which caused minor hair loss)
+        #Important: This contains voltages so they can be compared directly to the thresholds
+        i_dat_combined = list(i_dat_ls)
+
+        #Stitch the channels together
+        for i in range(len(i_dat_combined)): 
+            if (i_dat_combined[i] < th_1):
+                #print i_dat_combined[i]
+                #Output below threshold so try and replace it with a higher sensitivity measurement
+                if (i10_dat_ls[i] > th_2):
+                    #LSx10 channel is still in operation so use the measurment from there
+                    i_dat_combined[i] = i10_dat_ls[i] / (i_ls_res * 10) * scale
+                elif (i_dat_hs[i] > th_3):
+                    #Limiter should be off so check the HSx1 channelfirst
+                    i_dat_combined[i] = i_dat_hs[i] / i_hs_res * scale
+                else:
+                    #If HSx1 is below threshold then use the HSx10 channel
+                   i_dat_combined[i] = i10_dat_hs[i] / (i_hs_res * 10) * scale  
+            else:
+                #HSx1 channel is fine so convert it to a current
+                i_dat_combined[i] = i_dat_ls[i] / i_ls_res * scale
+    
+        #Now convert the individual channels to currents, could have convoluted this with the above
+        #for efficiency at the expense of clarity
+        #This isn't required really, but its nice to have on the graph plots for fine tuning
+        for i in range(len(i_dat_ls)):
+                i_dat_ls[i] = i_dat_ls[i] / i_ls_res * scale
+                i10_dat_ls[i] = i10_dat_ls[i] / (i_ls_res * 10) * scale
+                i_dat_hs[i] = i_dat_hs[i] / i_hs_res * scale
+                i10_dat_hs[i] = i10_dat_hs[i] / (i_hs_res * 10) * scale 
+        
+        #Correct the background: this is the important one
+        i_dat_combined = back_correct(i_dat_combined, bcorfac)
+        #This is done so that a negative decay level doesn't get removed from the scatter plot
+        #Really, these should all decay to the leakage of the opamp, but not in the case of in-situ STM
         i_dat_ls = back_correct(i_dat_ls, bcorfac)
         i10_dat_ls = back_correct(i10_dat_ls, bcorfac)
         i_dat_hs = back_correct(i_dat_hs, bcorfac)
         i10_dat_hs = back_correct(i10_dat_hs, bcorfac)
 
-        # Work out where to chop the channels whilst the data is stored as a voltage
-        # Threshold set from the GUI
-
-        th_1 = controller.th_1.get()
-        th_2 = controller.th_2.get()
-        th_3 = controller.th_3.get()
-        coords = droploc(i_dat_ls, th_1)
-        ch1_end = coords[0]  # Worry about fluctuations later
-
-        # print "Ch1:", coords
-
-        coords = droploc(i10_dat_ls, th_2)
-        ch2_end = coords[0]  # Coords is massive on the switchover, if use [-1] see nothing in histo apart from noise - crucial channel
-
-        # Note: above note only true for small threshold?
-        # print "Ch2:", coords
-
-        coords = droploc(i_dat_hs, th_3)
-        ch3_end = coords[0]
-
-        # print "Ch3:", coords
-
-        # In disasterous conditions, for example when the scanner is moved during
-        # an I(s) measurement all hell can break loose and we should at least be warned about that..
-
-        disaster = False
-        if ch2_end <= ch1_end:
-            ch2_end = ch1_end + 1
-            disaster = True
-        if ch3_end <= ch2_end:
-            ch3_end = ch2_end + 1
-            disaster = True
-        if disaster:
-            #In other words the next channel begins with a higher current than the previous.
-            #In an a decent I(s) scan this shouldn't be the case
-            print 'CAUTION: Possible overlap mismatch between channels'
-
-        # Convert voltages to currents from GUI set resistor values
-
-        i_ls_res = int(controller.lowres.get())
-        i_hs_res = int(controller.highres.get())
-        scale = 1e9  # convert to nanoamps
-        for i in range(0, len(i_dat_ls)):
-            i_dat_ls[i] = i_dat_ls[i] / i_ls_res * scale
-            i10_dat_ls[i] = i10_dat_ls[i] / (i_ls_res * 10) * scale
-            i_dat_hs[i] = i_dat_hs[i] / i_hs_res * scale
-            i10_dat_hs[i] = i10_dat_hs[i] / (i_hs_res * 10) * scale
-
-        # Chop and stitch the data together after it's been converted to current
-
-        i_dat_combined = []
-        i_dat_combined.extend(i_dat_ls[0:ch1_end])
-        i_dat_combined.extend(i10_dat_ls[ch1_end:ch2_end])
-        i_dat_combined.extend(i_dat_hs[ch2_end:ch3_end])
-        i_dat_combined.extend(i10_dat_hs[ch3_end:])
 
         # Append individual data calculations to list
-
         data.i_dat_all_ls.append(i_dat_ls)
         data.i10_dat_all_ls.append(i10_dat_ls)
         data.i_dat_all_hs.append(i_dat_hs)
@@ -422,29 +407,6 @@ def dat_input(start, finish, bcorfac):
         if controller.check_dat.get() > 0:
             userinput(auto_name)
 
-
-def droploc(data, threshold):
-
-    # Locate level drops for stitcher
-    # Used by matrix_plot() and dat_input()
-
-    coords = []  # Odd numbers will be drops, evens exceeds
-    th_ex = False
-    for i in range(0, len(data)):
-        if (th_ex == False) & (data[i] < threshold):
-
-            # Current dropped below thereshold
-
-            th_ex = True
-            coords.append(i)
-        if (th_ex == True) & (data[i] > threshold):
-
-            # We have a minor problem: current not simply decaying possibly due to a 'fluctuation'
-            # print "WARNING: Fluctuation detected"............
-
-            th_ex = False
-            coords.append(i)
-    return coords
 
 
 def back_correct(i_dat, bcorfac):
@@ -1992,7 +1954,7 @@ class controller:
 
 
 root = Tk()
-root.title('Scanmaster 3000 v0.32')
+root.title('Scanmaster 3000 v0.42')
 
 egraph = egraph(root)
 controller = controller(root)
