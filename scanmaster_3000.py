@@ -131,10 +131,10 @@ def scaninput(name):
     position = 0.00
     for line in lines:
         line = line.split()
-        i_dat_ls.append(abs(float(line[0])))  # ignore current sign, correct for resistor /v
-        i10_dat_ls.append(abs(float(line[1])))
-        i_dat_hs.append(abs(float(line[2])))
-        i10_dat_hs.append(abs(float(line[3])))
+        i_dat_ls.append((float(line[0])))  # ignore current sign, correct for resistor /v
+        i10_dat_ls.append((float(line[1])))
+        i_dat_hs.append((float(line[2])))
+        i10_dat_hs.append((float(line[3])))
         s_dat_ls.append(position)
         position += data.interval
     return (i_dat_ls, i10_dat_ls, i_dat_hs, i10_dat_hs, s_dat_ls)
