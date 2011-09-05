@@ -18,10 +18,6 @@
 #     along with this program; if not, write to the Free Software
 #     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
-#Updates are posted at: https://github.com/dougszumski/Scanmaster-3000
-#Git repo: git://github.com/dougszumski/Scanmaster-3000.git
-#For push access contact Doug
-
 # For embedded graph:
 
 import matplotlib
@@ -34,9 +30,9 @@ import sys
 # Dialogue
 
 from Tkinter import *
-from tkFileDialog import askopenfilename, asksaveasfile
+from tkFileDialog import askopenfilename
 from tkColorChooser import askcolor
-from tkMessageBox import askquestion, showerror, showinfo
+from tkMessageBox import askquestion, showerror
 from tkSimpleDialog import askfloat
 from tkMessageBox import askokcancel
 from FileDialog import LoadFileDialog
@@ -64,31 +60,49 @@ import plat_seek
 
 
 class data:
-    #Initialise a load of lists / variables for global use
-    def __init__(self):
-        # Sampling distance interval - calculated in scaninput for each file
-        self.interval = 0.00
-        # Four current channels from the quad amp
-        self.i_dat_all_ls = []
-        self.i_dat_all_hs = []
-        self.i10_dat_all_ls = []
-        self.i10_dat_all_hs = []
-        # Plateau data
-        self.plat_dat_ls = []
-        # The recombined current data
-        self.i_dat_all_combined = []
-        # Reconstructed spatial array to go with all current measurements
-        self.s_dat_all_ls = []
-        # The current working filename
-        self.filename = []
-        # The current file output number (for numbering selected data saved to new file)
-        self.file_newnum = 0
-        # Filtered data used in linear regression fitting
-        self.i_dat_filtered = []
-        self.s_dat_filtered = []
-        # Linear regression related stuff for plotting
-        self.polyfit_rescaled = []
-        self.err = 0.00  # Error on least squares fit for linear reg.
+
+    # Data container for variables / arrays used globally
+
+    # Sampling distance interval - calculated in scaninput for each file
+
+    interval = 0.00
+
+    # Four current channels from the quad amp
+
+    i_dat_all_ls = []
+    i_dat_all_hs = []
+    i10_dat_all_ls = []
+    i10_dat_all_hs = []
+
+    # Plateau data
+
+    plat_dat_ls = []
+
+    # The recombined current data
+
+    i_dat_all_combined = []
+
+    # Reconstructed spatial array to go with all current measurements
+
+    s_dat_all_ls = []
+
+    # The current working filename
+
+    filename = []
+
+    # The current file output number (for numbering selected data saved to new file)
+
+    file_newnum = 0
+
+    # Filtered data used in linear regression fitting
+
+    i_dat_filtered = []
+    s_dat_filtered = []
+
+    # Linear regression related stuff for plotting
+
+    polyfit_rescaled = []
+    err = 0.00  # Error on least squares fit for linear reg.
 
 
 def scaninput(name):
@@ -117,10 +131,10 @@ def scaninput(name):
     position = 0.00
     for line in lines:
         line = line.split()
-        i_dat_ls.append((float(line[0])))  # ignore current sign, correct for resistor /v
-        i10_dat_ls.append((float(line[1])))
-        i_dat_hs.append((float(line[2])))
-        i10_dat_hs.append((float(line[3])))
+        i_dat_ls.append(abs(float(line[0])))  # ignore current sign, correct for resistor /v
+        i10_dat_ls.append(abs(float(line[1])))
+        i_dat_hs.append(abs(float(line[2])))
+        i10_dat_hs.append(abs(float(line[3])))
         s_dat_ls.append(position)
         position += data.interval
     return (i_dat_ls, i10_dat_ls, i_dat_hs, i10_dat_hs, s_dat_ls)
@@ -137,18 +151,17 @@ def contour_plot():
         for value in i_dat:
             i_list.append(np.log10(abs(value)))
             #i_list.append(abs(value)) #uncomment for linear plot
-    if (len(i_list) < 1):
-        error = showerror('Error', 'No data in memory')
-        return
 
     # Generate list of all distances. This list will be the same length as the current list and therefore
     # the indices will be directly related.
+
     s_list = []
     for s_dat in data.s_dat_all_ls:
         for value in s_dat:
             s_list.append(value)
 
     # Plot the 2D histogram
+
     (H, xedges, yedges) = np.histogram2d(i_list, s_list,
             bins=(controller.ybin_contour.get(),
             controller.xbin_contour.get()),
@@ -165,30 +178,6 @@ def contour_plot():
     plt.xlabel('Distance (nm)')
     plt.ylabel('log10[current (nA)]')
     plt.show()
-
-def export_current_data():
-    # Writes current array to file for external analysis
-    # TODO: Could be useful to have the option to choose:
-    #       log of current, sorted current...
-    
-    #Start by assembling the current list
-    i_list = []
-    for i_dat in data.i_dat_all_combined:
-        for value in i_dat:
-            i_list.append(value)
-
-    #Check it's got data in, otherwise flag an error
-    if (len(i_list) < 1):
-        error = showerror('Error', 'No data in memory')
-        return
-
-    #Write it to file 
-    FILE = asksaveasfile(mode='w', title='Save current list as...')
-    if FILE:
-        for value in i_list:
-            FILE.write('%s \n' % value)
-        info = showinfo('Notice', 'File saved')
-        FILE.close()
 
 
 def plat_seeker(current_trace):
@@ -238,11 +227,14 @@ def dat_input(start, finish, bcorfac):
     # by averaging over the final fraction of the data set in the GUI, then appends the I(s) data to a list
 
     file_prefix = data.filename[0:-8]  # includes file path 4 digits
+
     # file_prefix = data.filename[0:-7] #includes file path 3 digits
+
     file_ext = '.txt'
     file_number = data.filename[-8:-4]  # 4 digitis
+
     # file_number = data.filename[-7:-4] # 3 digits
-    #FIXME: Delete: initiliaised in the data class
+
     data.i_dat_all_ls = []  # current
     data.i10_dat_all_ls = []
     data.i_dat_all_hs = []
@@ -251,81 +243,93 @@ def dat_input(start, finish, bcorfac):
     data.i_dat_all_combined = []
     print 'Reading files...'
     for i in range(start, finish + 1):
+
         # Generate filename
+
         auto_name = file_prefix + str(i).zfill(4) + file_ext  # 4 digits
+
         # auto_name = file_prefix + str(i).zfill(3) + file_ext #3digits
+
         print 'Reading...', auto_name
 
         #File prefix for filtered saved directory, extracted from the current directory
+        
         temp = auto_name[0:string.rfind(auto_name, '/')]
         savedir = temp[string.rfind(temp, '/')+1:len(temp)]
 
         # Read in data from file
+
         (i_dat_ls, i10_dat_ls, i_dat_hs, i10_dat_hs, s_dat_ls) = \
             scaninput(auto_name)
 
-        # Work out where to chop the channels whilst the data is stored as a voltage
-        # Threshold set from the GUI: Normally these are 0.1V 
-        th_1 = controller.th_1.get()
-        th_2 = controller.th_2.get()
-        th_3 = controller.th_3.get() 
+        # Correct background offset
 
-        #Get the resistor values
-        i_ls_res = int(controller.lowres.get())
-        i_hs_res = int(controller.highres.get())
-        scale = 1e9  # convert to nanoamps
+        # TODO: Check the sdev of the background and reject if larger than the expect noise
+        # This will prevent spurious correction factors and help to get rid of dodgy scans
 
-        #Figure out if the scan is negative or not, using sum for average and invert if it is
-        if (sum(i_dat_ls) < 0.0):
-            #Invert the measurement
-            for i in range(len(i_dat_ls)):
-                i_dat_ls[i] = i_dat_ls[i] * -1.0 
-                i10_dat_ls[i] = i10_dat_ls[i] * -1.0
-                i_dat_hs[i] = i_dat_hs[i] * -1.0
-                i10_dat_hs[i] = i10_dat_hs[i] * -1.0
-
-        #Make a copy of the list (note to self: direct assignment creates a pointer to the list which caused minor hair loss)
-        #Important: This contains voltages so they can be compared directly to the thresholds
-        i_dat_combined = list(i_dat_ls)
-
-        #Stitch the channels together
-        for i in range(len(i_dat_combined)): 
-            if (i_dat_combined[i] < th_1):
-                #print i_dat_combined[i]
-                #Output below threshold so try and replace it with a higher sensitivity measurement
-                if (i10_dat_ls[i] > th_2):
-                    #LSx10 channel is still in operation so use the measurment from there
-                    i_dat_combined[i] = i10_dat_ls[i] / (i_ls_res * 10) * scale
-                elif (i_dat_hs[i] > th_3):
-                    #Limiter should be off so check the HSx1 channelfirst
-                    i_dat_combined[i] = i_dat_hs[i] / i_hs_res * scale
-                else:
-                    #If HSx1 is below threshold then use the HSx10 channel
-                   i_dat_combined[i] = i10_dat_hs[i] / (i_hs_res * 10) * scale  
-            else:
-                #HSx1 channel is fine so convert it to a current
-                i_dat_combined[i] = i_dat_ls[i] / i_ls_res * scale
-    
-        #Now convert the individual channels to currents, could have convoluted this with the above
-        #for efficiency at the expense of clarity
-        #This isn't required really, but its nice to have on the graph plots for fine tuning
-        for i in range(len(i_dat_ls)):
-                i_dat_ls[i] = i_dat_ls[i] / i_ls_res * scale
-                i10_dat_ls[i] = i10_dat_ls[i] / (i_ls_res * 10) * scale
-                i_dat_hs[i] = i_dat_hs[i] / i_hs_res * scale
-                i10_dat_hs[i] = i10_dat_hs[i] / (i_hs_res * 10) * scale 
-        
-        #Correct the background: this is the important one
-        i_dat_combined = back_correct(i_dat_combined, bcorfac)
-        #This is done so that a negative decay level doesn't get removed from the scatter plot
-        #Really, these should all decay to the leakage of the opamp, but not in the case of in-situ STM
         i_dat_ls = back_correct(i_dat_ls, bcorfac)
         i10_dat_ls = back_correct(i10_dat_ls, bcorfac)
         i_dat_hs = back_correct(i_dat_hs, bcorfac)
         i10_dat_hs = back_correct(i10_dat_hs, bcorfac)
 
+        # Work out where to chop the channels whilst the data is stored as a voltage
+        # Threshold set from the GUI
+
+        th_1 = controller.th_1.get()
+        th_2 = controller.th_2.get()
+        th_3 = controller.th_3.get()
+        coords = droploc(i_dat_ls, th_1)
+        ch1_end = coords[0]  # Worry about fluctuations later
+
+        # print "Ch1:", coords
+
+        coords = droploc(i10_dat_ls, th_2)
+        ch2_end = coords[0]  # Coords is massive on the switchover, if use [-1] see nothing in histo apart from noise - crucial channel
+
+        # Note: above note only true for small threshold?
+        # print "Ch2:", coords
+
+        coords = droploc(i_dat_hs, th_3)
+        ch3_end = coords[0]
+
+        # print "Ch3:", coords
+
+        # In disasterous conditions, for example when the scanner is moved during
+        # an I(s) measurement all hell can break loose and we should at least be warned about that..
+
+        disaster = False
+        if ch2_end <= ch1_end:
+            ch2_end = ch1_end + 1
+            disaster = True
+        if ch3_end <= ch2_end:
+            ch3_end = ch2_end + 1
+            disaster = True
+        if disaster:
+            #In other words the next channel begins with a higher current than the previous.
+            #In an a decent I(s) scan this shouldn't be the case
+            print 'CAUTION: Possible overlap mismatch between channels'
+
+        # Convert voltages to currents from GUI set resistor values
+
+        i_ls_res = int(controller.lowres.get())
+        i_hs_res = int(controller.highres.get())
+        scale = 1e9  # convert to nanoamps
+        for i in range(0, len(i_dat_ls)):
+            i_dat_ls[i] = i_dat_ls[i] / i_ls_res * scale
+            i10_dat_ls[i] = i10_dat_ls[i] / (i_ls_res * 10) * scale
+            i_dat_hs[i] = i_dat_hs[i] / i_hs_res * scale
+            i10_dat_hs[i] = i10_dat_hs[i] / (i_hs_res * 10) * scale
+
+        # Chop and stitch the data together after it's been converted to current
+
+        i_dat_combined = []
+        i_dat_combined.extend(i_dat_ls[0:ch1_end])
+        i_dat_combined.extend(i10_dat_ls[ch1_end:ch2_end])
+        i_dat_combined.extend(i_dat_hs[ch2_end:ch3_end])
+        i_dat_combined.extend(i10_dat_hs[ch3_end:])
 
         # Append individual data calculations to list
+
         data.i_dat_all_ls.append(i_dat_ls)
         data.i10_dat_all_ls.append(i10_dat_ls)
         data.i_dat_all_hs.append(i_dat_hs)
@@ -408,6 +412,29 @@ def dat_input(start, finish, bcorfac):
             userinput(auto_name)
 
 
+def droploc(data, threshold):
+
+    # Locate level drops for stitcher
+    # Used by matrix_plot() and dat_input()
+
+    coords = []  # Odd numbers will be drops, evens exceeds
+    th_ex = False
+    for i in range(0, len(data)):
+        if (th_ex == False) & (data[i] < threshold):
+
+            # Current dropped below thereshold
+
+            th_ex = True
+            coords.append(i)
+        if (th_ex == True) & (data[i] > threshold):
+
+            # We have a minor problem: current not simply decaying possibly due to a 'fluctuation'
+            # print "WARNING: Fluctuation detected"............
+
+            th_ex = False
+            coords.append(i)
+    return coords
+
 
 def back_correct(i_dat, bcorfac):
 
@@ -484,7 +511,7 @@ def rawfileInput(filename):
         i_list_hs_x10.append(a[3])
     print 'Data loaded...'
     return (i_list_ls_x1, i_list_ls_x10, i_list_hs_x1, i_list_hs_x10)
-    infile.close
+
 
 def groupAvg(data):
 
@@ -652,7 +679,6 @@ def tea_break_maker():
 
     # Deals with reading all raw data files from the ADC and splitting them into I(s) scans using chopper
     # Tea break maker tries to prevent laziness by asking some questions about the experiment before processing the data
-
     # After these have been answered they'll be plenty of time for a tea break.
 
     questions = [
@@ -675,18 +701,13 @@ def tea_break_maker():
     os.chdir(os.path.abspath('raw'))
     for (path, dirs, files) in os.walk(os.getcwd()):
         for filename in files:
+
             # For each precious measurement we must have a description
+
             questions.append(filename
                              + " details (bias/setpoint/other)	:")
-
-    #Generate some dialogue to guide/warn the user
-    if (len(files) < 1):
-        error = showerror('Disaster', 'No data found in ../raw')
-        return
-    info = showinfo('Scan reconstructor', 'Refer to the terminal')
-
     answers = []
-    os.chdir(os.pardir)  # 'cd..
+    os.chdir(os.pardir)  # 'cd..#
 
     # Now ask the questions
     if not os.access('nfo.txt', os.F_OK):
@@ -813,15 +834,9 @@ class egraph:
 
     # Plots embedded matplotlib graphs in main window
     # NOTE: To edit the x,y range of the plots change xmin, xmax, ymin, ymax below
+
     def __init__(self, myParent):
-        #Deal with different screen resolutions
-        if root.winfo_screenwidth() <= 1024:
-            #Low res so downsize figures, ideal for XGA, but no smaller (unlikely!)
-            self.f = Figure(figsize=(10, 7), dpi=80)
-        else:
-            #This is fine for SXGA and higher
-            self.f = Figure(figsize=(14, 9), dpi=80)
-        #Add the subplots
+        self.f = Figure(figsize=(14, 9), dpi=80)
         self.ax = self.f.add_subplot(131)
         self.ax2 = self.f.add_subplot(132)
         self.ax3 = self.f.add_subplot(133)
@@ -909,12 +924,11 @@ class egraph:
 class controller:
 
     # This generates the main GUI and contains all variables the use can modify
+
     def __init__(self, myParent):
-    
-        #Save the root path of the gui
-        root_path = os.getcwd() 
 
         # Constants for controlling layout
+
         button_width = 15
         button_padx = '2m'
         button_pady = '1m'
@@ -924,11 +938,13 @@ class controller:
         buttons_frame_ipady = '1m'
 
         # Initiate Variables
+
         self.stavar = IntVar()
         self.finvar = IntVar()
         self.bcorfac = DoubleVar()
 
         # Data processing variables
+
         self.bkgnd_tol = IntVar()
         self.xfac = DoubleVar()
         self.plot_dat = IntVar()
@@ -940,25 +956,30 @@ class controller:
         self.auto_read = IntVar()
 
          # KDE
+
         self.kde_bandwidth = DoubleVar()
         self.kde_stop = IntVar()
         self.kde_points = IntVar()
 
          # Resistor division
+
         self.lowres = DoubleVar()
         self.highres = DoubleVar()
 
         # Stitch volages
+
         self.th_1 = DoubleVar()
         self.th_2 = DoubleVar()
         self.th_3 = DoubleVar()
 
          # STM/ADC variables sampsec, srange, sduration
+
         self.sampsec = IntVar()
         self.srange = DoubleVar()
         self.sduration = DoubleVar()
 
         # Contour plot parameters
+
         self.xmin_contour = DoubleVar()
         self.xmax_contour = DoubleVar()
         self.ymin_contour = DoubleVar()
@@ -967,6 +988,7 @@ class controller:
         self.ybin_contour = IntVar()
 
         # Plateau fitting parameters
+
         self.plat_max_grad = DoubleVar()
         self.background_tol = IntVar()
         self.max_plat_cur = DoubleVar()
@@ -975,12 +997,14 @@ class controller:
         self.min_points_plat = IntVar()
 
         #Chopper parameters
+
         self.scan_u_th = DoubleVar()
         self.scan_l_th = DoubleVar()
         self.max_seg_len = IntVar()
         self.min_seg_len = IntVar()
 
         # Data filtering
+
         self.datfillogi = IntVar()
 
         #Check to see if some select variables have been pickled:
@@ -1125,10 +1149,6 @@ class controller:
         self.ScanAnalysis.menu.add_command(label='Read scans to memory'
                 , underline=0, background='grey', activebackground='red'
                 , command=self.readfiles)
-        #self.ScanAnalysis.menu.add('separator')
-        self.ScanAnalysis.menu.add_command(label='Export current list to file'
-                , underline=0, background='grey', activebackground='green'
-                , command=export_current_data)
         self.ScanAnalysis.menu.add('separator')
         self.ScanAnalysis.menu.add_checkbutton(label='Read all scans in folder'
                 , underline=0, variable=self.auto_read)
@@ -1184,12 +1204,10 @@ class controller:
                 underline=0, command=self.plateau_fitting_params)
         self.SettingsMenu.menu.add_command(label='Scan reconstruction',
                 underline=0, command=self.chopper_params)
-        self.SettingsMenu.menu.add('separator')
         self.SettingsMenu.menu.add_command(label='Save settings'
                 , underline=0, background='grey', activebackground='red'
                 , command=self.saveData)
         self.SettingsMenu['menu'] = self.SettingsMenu.menu
-
 
     def saveData(self):
 
@@ -1283,19 +1301,23 @@ class controller:
         else:
 
             #Display an error if file isn't there
-            self.error = showerror('Error', 'nfo.txt not found')
+
+            self.error = showerror('Disaster', 'nfo.txt not found')
 
     def chopper_params(self): #MARKER
 
         # Configure chopper parameters
+
         self.chopper_params = Toplevel()
         self.chopper_params.title('Chopper parameters')
 
         # Put the parameters in a frame
+
         self.chopper_frame = Frame(self.chopper_params)
         self.chopper_frame.pack(side=TOP, padx=50, pady=5)
 
         # Draw the controls; see the text for what they do
+
         Label(self.chopper_frame, text='Minimum segment length (points)').grid(row=0,
                 column=0)
         self.minseglength = Spinbox(
@@ -1357,16 +1379,19 @@ class controller:
     def quadchannel_params(self):
 
         # Configure the quad channel system in a new window
+
         self.qc_params = Toplevel()
         self.qc_params.title('Quad channel module calibration')
 
         # Put the parameters in frames
+
         self.resistance_frame = Frame(self.qc_params)
         self.resistance_frame.pack(side=TOP, padx=70, pady=5)
         self.cutoff_frame = Frame(self.qc_params)
         self.cutoff_frame.pack(side=TOP, padx=70, pady=5)
 
         # Feedback resistor settings
+
         Label(self.resistance_frame, text='Feedback resistance (L):'
               ).grid(row=0, column=0)
 
@@ -1396,6 +1421,7 @@ class controller:
             ).grid(row=1, column=1)
 
         # Cutoff voltage settings for channel switchover
+
         Label(self.cutoff_frame, text='Cutoff voltages (V)'
               ).grid(row=0, column=0)
 
@@ -1444,14 +1470,17 @@ class controller:
     def kde_params(self):
 
         # Configure the KDE parameters in a new window
+
         self.kde_params = Toplevel()
         self.kde_params.title('KDE parameters')
 
         # Put the parameters in a frame
+
         self.kde_frame = Frame(self.kde_params)
         self.kde_frame.pack(side=TOP, pady=5)
 
         # KDE parameters
+
         Scale(
             self.kde_frame,
             label='KDE bandwidth:',
@@ -1494,14 +1523,17 @@ class controller:
     def data_filter(self):
 
         # Configure the data input parameters in a new window
+
         self.data_filter = Toplevel()
         self.data_filter.title('Data filtering')
 
         # Put the parameters in a frame
+
         self.data_frame = Frame(self.data_filter)
         self.data_frame.pack(side=TOP, padx=50, pady=5)
 
         # Draw the controls; see the text for what they do
+
         Label(self.data_frame, text='Cumulative log(I) threshold:'
               ).grid(row=0, column=0)
         self.start = Spinbox(
@@ -1519,14 +1551,17 @@ class controller:
     def data_params(self):
 
         # Configure the data input parameters in a new window
+
         self.data_params = Toplevel()
         self.data_params.title('Data parameters')
 
         # Put the parameters in a frame
+
         self.data_frame = Frame(self.data_params)
         self.data_frame.pack(side=TOP, padx=50, pady=5)
 
         # Draw the controls; see the text for what they do
+
         Label(self.data_frame, text='Manual file input range start:'
               ).grid(row=0, column=0)
         self.start = Spinbox(
@@ -1586,14 +1621,17 @@ class controller:
     def adc_params(self):
 
         # Configure the ADC / STM parameters
+
         self.adc_params = Toplevel()
         self.adc_params.title('ADC / STM parameters')
 
         # Put the parameters in a frame
+
         self.adc_frame = Frame(self.adc_params)
         self.adc_frame.pack(side=TOP, padx=50, pady=5)
 
         # Draw the controls; see the text for what they do
+
         Label(self.adc_frame, text='Samples per second:').grid(row=0,
                 column=0)
         self.sampsecond = Spinbox(
@@ -1639,14 +1677,17 @@ class controller:
     def contour_params(self):
 
         # Configure the contour parameters
+
         self.contour_params = Toplevel()
         self.contour_params.title('2D histogram parameters')
 
         # Put the parameters in a frame
+
         self.contour_frame = Frame(self.contour_params)
         self.contour_frame.pack(side=TOP, padx=50, pady=5)
 
         # Draw the controls; see the text for what they do
+
         Label(self.contour_frame, text='x-axis minimum:').grid(row=0,
                 column=0)
         self.xmin = Spinbox(
@@ -1734,14 +1775,17 @@ class controller:
     def plateau_fitting_params(self):
 
         # Configure the contour parameters
+
         self.plateau_fitting_params = Toplevel()
         self.plateau_fitting_params.title('Plateau fitting parameters')
 
         # Put the parameters in a frame
+
         self.plateau_fitting_frame = Frame(self.plateau_fitting_params)
         self.plateau_fitting_frame.pack(side=TOP, padx=50, pady=5)
 
         # Draw the controls; see the text for what they do
+
         Label(self.plateau_fitting_frame,
               text='Minimum data points per plateau:').grid(row=0,
                 column=0)
@@ -1835,6 +1879,7 @@ class controller:
     def kde_plot(self):
 
         # Fetch KDE parameters from control widgets
+
         kde_bandwidth = self.kde_bandwidth.get()
         kde_start = kde_bandwidth  # The lowest the KDE start can go
         kde_stop = self.kde_stop.get()
@@ -1842,6 +1887,7 @@ class controller:
 
         # Plot KDE function and read all current data to a single list
         # Initialse current list and append currents from individual files
+
         i_list = []
         for reading in data.i_dat_all_combined:
             for value in reading:
@@ -1853,10 +1899,6 @@ class controller:
                     i_list.append(np.log10(value))
         print 'Lists appended, found:', len(i_list), 'data points.'
 
-        if (len(i_list) < 1):
-            self.error = showerror('Error', 'No data in memory')
-            return
-
         # Fit KDE and setup plot
         # x = np.linspace(min(i_list),max(i_list),kde_points)
         # haa = statistics.bandwidth(i_list, kernel='Epanechnikov')
@@ -1867,10 +1909,12 @@ class controller:
         # plot_y_lim = ( max(z) ) * 1.1
         # plot_y_lim = 0.12
         # plt.xscale('log')
+
         plt.hist(i_list, bins=500, facecolor='black', normed=1)
+
         # qc= 7.74
         # oc= 7.08....
-        # plt.axvline(np.log10(qc), def __init__(self, myParent):
+        # plt.axvline(np.log10(qc), c='g')
         # plt.axvline(oc, c='r')
         # plt.axvline(oc*2, c='r')
         # plt.axvline(oc*3, c='r')
@@ -1879,10 +1923,13 @@ class controller:
         # plt.plot(x, z,'b', label='KDE', linewidth=3)
         # plt.axis([0, kde_stop, 0, plot_y_lim])
         # plt.legend()
+
         plt.grid()
         plt.ylabel('Density', fontsize=14)
         plt.xlabel('log_10[current (nanoamps)]', fontsize=14)
+
         # plt.title('Molecular conductance: 0 degrees', fontsize=16)
+
         plt.show()
 
     def linear_data_plot(self):
@@ -1895,11 +1942,6 @@ class controller:
                 # i_list.append(value)
                 if ( (value > 0) and (value < 0.5) ):
                     i_list.append(value)
-        
-        if (len(i_list) < 1):
-            self.error = showerror('Error', 'No data in memory')
-            return
-
         print 'Lists appended, found:', len(i_list), 'data points.'
         plt.hist(i_list, bins=2000, facecolor='black', normed=1)
         plt.grid()
@@ -1909,25 +1951,28 @@ class controller:
 
     def readfiles(self):
 
-        if (len(data.filename) < 1):
-            self.error = showerror('Error', 'Input folder not defined')
-            return
         # Reset the new file counter so autoprocessed / manually processed files are labelled
         # from zero everytime.
+
         data.file_newnum = 0
+
         # Set the number of files to read in automatically
+
         auto_read = controller.auto_read.get()
 
         if auto_read == 1:
 
             # Automatically set file input range if so desired by the user
+
             target_folder = data.filename[0:string.rfind(data.filename, '/')]
 
             # Save the current working directory
+
             cwd_bak = os.getcwd()
 
             # Have a poke around the user selected data directory for the number of files
             # which must be sequentially numbered
+
             os.chdir(target_folder)
             filenumber_list = []
             for (path, dirs, files) in os.walk(os.getcwd()):
@@ -1937,9 +1982,12 @@ class controller:
             finish = max(filenumber_list)
 
             # Go back to the current working directory
+
             os.chdir(cwd_bak)
         else:
+
             # Use the default or user set input range
+
             start = int(self.stavar.get())
             finish = int(self.finvar.get())
 
@@ -1948,13 +1996,14 @@ class controller:
         print 'End of file input'
 
     def importdata(self):
-        
+
         # Needs to call tea break maker
+
         tea_break_maker()
 
 
 root = Tk()
-root.title('Scanmaster 3000 v0.42')
+root.title('Scanmaster 3000 v0.28')
 
 egraph = egraph(root)
 controller = controller(root)
