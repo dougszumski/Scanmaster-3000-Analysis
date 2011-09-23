@@ -270,50 +270,83 @@ def dat_input(start, finish, bcorfac):
         th_2 = controller.th_2.get()
         th_3 = controller.th_3.get() 
 
+        #Now have a look at the background levels on the HS channels to see if they've saturated
+        end = len(i_dat_hs)
+        final_int = int(end * bcorfac)
+        begin = int(end - final_int)
+        # Calculate the absolute average of the background 
+        fin_avg_hs1 = abs(sum(i_dat_hs[begin:end]) / final_int)
+        fin_avg_hs10 = abs(sum(i10_dat_hs[begin:end]) / final_int)
+       
+        #Now see if the channels have saturated
+        sat_flag_hs1 = False
+        sat_flag_hs10 = False     
+        #TODO Add the 6.0V here as a parameter in the GUI. It is a function of the limiter circuit.   
+        if (fin_avg_hs1 > 6.0):
+            print "Channels HSx1 and HSx10 are saturated and have been ignored"
+            sat_flag_hs1 = True
+            #It follows that HSx10 must have also saturated
+            sat_flag_hs10 = True
+        elif (fin_avg_hs1 > 6.0):
+            print "Channel HSx10 saturated and has been ignored"
+            sat_flag_hs10 = True
+            
         #Get the resistor values
         i_ls_res = int(controller.lowres.get())
         i_hs_res = int(controller.highres.get())
         scale = 1e9  # convert to nanoamps
 
         #Figure out if the scan is negative or not, using sum for average and invert if it is
-        if (sum(i_dat_ls) < 0.0):
-            #Invert the measurement
-            for i in range(len(i_dat_ls)):
-                i_dat_ls[i] = i_dat_ls[i] * -1.0 
-                i10_dat_ls[i] = i10_dat_ls[i] * -1.0
-                i_dat_hs[i] = i_dat_hs[i] * -1.0
-                i10_dat_hs[i] = i10_dat_hs[i] * -1.0
+        #TODO Delete this when sure as it should now be redundant following inversion upon initial data
+        # stream reading
+        #if (sum(i_dat_ls) < 0.0):
+        #    #Invert the measurement
+        #    for i in range(len(i_dat_ls)):
+        #        i_dat_ls[i] = i_dat_ls[i] * -1.0 
+        #        i10_dat_ls[i] = i10_dat_ls[i] * -1.0
+        #        i_dat_hs[i] = i_dat_hs[i] * -1.0
+        #        i10_dat_hs[i] = i10_dat_hs[i] * -1.0
 
         #Make a copy of the list (note to self: direct assignment creates a pointer to the list which caused minor hair loss)
         #Important: This contains voltages so they can be compared directly to the thresholds
         i_dat_combined = list(i_dat_ls)
 
-        #Stitch the channels together
-        for i in range(len(i_dat_combined)): 
-            if (i_dat_combined[i] < th_1):
-                #print i_dat_combined[i]
-                #Output below threshold so try and replace it with a higher sensitivity measurement
-                if (i10_dat_ls[i] > th_2):
-                    #LSx10 channel is still in operation so use the measurment from there
-                    i_dat_combined[i] = i10_dat_ls[i] / (i_ls_res * 10) * scale
-                elif (i_dat_hs[i] > th_3):
-                    #Limiter should be off so check the HSx1 channelfirst
-                    i_dat_combined[i] = i_dat_hs[i] / i_hs_res * scale
-                else:
-                    #If HSx1 is below threshold then use the HSx10 channel
-                   i_dat_combined[i] = i10_dat_hs[i] / (i_hs_res * 10) * scale  
-            else:
-                #HSx1 channel is fine so convert it to a current
-                i_dat_combined[i] = i_dat_combined[i] / i_ls_res * scale
-    
+        #Set this to true to use only the LSx1 channel
+        single_chan = False
+        if single_chan:
+            #Test for only one channel
+            for i in range(len(i_dat_combined)):
+                #if i_dat_combined[i] 
+                i_dat_combined[i] = i_dat_combined[i] / (i_ls_res) * scale
+        else:
+            #Stitch the channels together
+            for i in range(len(i_dat_combined)): 
+                #FIXME Convert to amps from volts, this used to be in an 'else' but 
+                #moved here (less efficient) due to obscure bug?
+                i_dat_combined[i] = i_dat_combined[i] / (i_ls_res) * scale
+                if (i_dat_combined[i] < th_1):
+                    #Output below threshold so try and replace it with a higher sensitivity measurement
+                    if (i10_dat_ls[i] > th_2):
+                        #LSx10 channel is still in operation so use the measurment from there
+                        i_dat_combined[i] = i10_dat_ls[i] / (i_ls_res * 10) * scale
+                        #i_dat_combined[i] = i_dat_combined[i] / (i_ls_res) * scale
+                    elif ( (i_dat_hs[i] > th_3) and not sat_flag_hs1):
+                        #Limiter should be off so check the HSx1 channelfirst
+                        i_dat_combined[i] = i_dat_hs[i] / i_hs_res * scale
+                    elif not sat_flag_hs10:
+                        #If HSx1 is below threshold then use the HSx10 channel
+                        i_dat_combined[i] = i10_dat_hs[i] / (i_hs_res * 10) * scale  
+
         #Now convert the individual channels to currents, could have convoluted this with the above
         #for efficiency at the expense of clarity
         #This isn't required really, but its nice to have on the graph plots for fine tuning
         for i in range(len(i_dat_ls)):
                 i_dat_ls[i] = i_dat_ls[i] / i_ls_res * scale
                 i10_dat_ls[i] = i10_dat_ls[i] / (i_ls_res * 10) * scale
-                i_dat_hs[i] = i_dat_hs[i] / i_hs_res * scale
-                i10_dat_hs[i] = i10_dat_hs[i] / (i_hs_res * 10) * scale 
+                #TODO (low priority) If these are saturated they will appear as almost flat lines on the plot
+                #Notify the plotter not to plot them to avoid confusion?
+                if not sat_flag_hs1: i_dat_hs[i] = i_dat_hs[i] / i_hs_res * scale
+                if not sat_flag_hs10: i10_dat_hs[i] = i10_dat_hs[i] / (i_hs_res * 10) * scale 
         
         #Correct the background: this is the important one
         i_dat_combined = back_correct(i_dat_combined, bcorfac)
@@ -321,8 +354,8 @@ def dat_input(start, finish, bcorfac):
         #Really, these should all decay to the leakage of the opamp, but not in the case of in-situ STM
         i_dat_ls = back_correct(i_dat_ls, bcorfac)
         i10_dat_ls = back_correct(i10_dat_ls, bcorfac)
-        i_dat_hs = back_correct(i_dat_hs, bcorfac)
-        i10_dat_hs = back_correct(i10_dat_hs, bcorfac)
+        if not sat_flag_hs1: i_dat_hs = back_correct(i_dat_hs, bcorfac)
+        if not sat_flag_hs10:  i10_dat_hs = back_correct(i10_dat_hs, bcorfac)
 
         # Append individual data calculations to list
         data.i_dat_all_ls.append(i_dat_ls)
@@ -477,10 +510,10 @@ def rawfileInput(filename):
     lines = infile.readlines()
     for line in lines:
         a = line.split()
-        i_list_ls_x1.append(a[0])  # 1 for big file, 3 for small
-        i_list_ls_x10.append(a[1])
-        i_list_hs_x1.append(a[2])  # 1 for big file, 3 for small
-        i_list_hs_x10.append(a[3])
+        i_list_ls_x1.append(float(a[0]))
+        i_list_ls_x10.append(float(a[1]))
+        i_list_hs_x1.append(float(a[2])) 
+        i_list_hs_x10.append(float(a[3]))
     print 'Data loaded...'
     return (i_list_ls_x1, i_list_ls_x10, i_list_hs_x1, i_list_hs_x10)
     infile.close
@@ -488,12 +521,12 @@ def rawfileInput(filename):
 def groupAvg(data):
 
     # Returns the average value of a string of data points
-
     tmp = 0.00
     for value in data:
-        tmp += float(value)
+        tmp += value
     tmp /= len(data)
-    return abs(tmp)
+    # return abs(tmp)
+    return tmp
 
 
 def fileOutput(
@@ -532,6 +565,27 @@ def chopper(
     counter = 0
     start = 0
     stop = 0
+
+    #Detect it the tip substrate bias is positive or negative to allow auto-inversion of data
+    #The average of the LSx1 channel is a good, but inefficient measure of this
+    #TODO: If the warning appears frequently parameterise this in the GUI with a manual override
+
+    dat_avg = np.average(data)
+    print "LSx1 channel average is: ", dat_avg, "V"
+    if (dat_avg < -0.5):
+        print "Assuming negative tip-substrate bias"
+        #Invert the data
+        #FIXME get rid of the now redundant inversion check when reading the split files back in
+        for i in range(len(data)):
+                data[i]   = data[i]   * -1.0
+                data_2[i] = data_2[i] * -1.0
+                data_3[i] = data_3[i] * -1.0
+                data_4[i] = data_4[i] * -1.0
+    elif (dat_avg > 0.5):
+        print "Assuming positive tip-substrate bias"
+    else:
+        print "ABORTING!!! Low set point current detected; automatic polarity check failed"
+        sys.exit("Failed bias check")
 
     # filecounter = 0
     # Implement minimum
@@ -650,7 +704,7 @@ def chopper(
 def tea_break_maker():
 
     # Deals with reading all raw data files from the ADC and splitting them into I(s) scans using chopper
-    # Tea break maker tries to prevent laziness by asking some questions about the experiment before processing the data
+    # Attempt to prevent laziness by asking some questions about the experiment before processing the data
 
     # After these have been answered they'll be plenty of time for a tea break.
 
@@ -776,7 +830,7 @@ def tea_break_maker():
                     # Reconstruct the I(s) scans only if the the folder is empty
                     # TODO: make this more generic -- get rid of dependence on specified file        
                     #Time period for processing on one split file and estimate remaining time.  
-                    # TODO: Bug here: Current test only works for first folder! Fix
+                    # FIXME: Bug here: Current test only works for first folder! Fix
 
                     if os.access('slice0000.txt', os.F_OK) and not check_flag:
                         print "Skipping scan reconstruction: target folder:", "../" + output, "is not empty"
@@ -1327,7 +1381,7 @@ class controller:
                 column=0)
         self.u_th = Spinbox(
             self.chopper_frame,
-            from_=0.0,
+            from_=-10.0,
             to=10.0,
             increment=0.01,
             width=10,
@@ -1341,8 +1395,8 @@ class controller:
                 column=0)
         self.l_th = Spinbox(
             self.chopper_frame,
-            from_=0.0,
-            to=1.0,
+            from_=-10.0,
+            to=10.0,
             increment=0.001,
             width=10,
             wrap=True,
