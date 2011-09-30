@@ -63,8 +63,9 @@ from scipy import linspace, polyval, polyfit, sqrt, stats, randn
 import plat_seek
 
 
-class data:
+class Data:
     #Initialise a load of lists / variables for global use
+    #TODO Add functions to set/read these attributes rather than addressing the directly (good practice)
     def __init__(self):
         # Sampling distance interval - calculated in scaninput for each file
         self.interval = 0.00
@@ -131,12 +132,14 @@ def contour_plot():
 
     # Plots 2d histograms of current distance scans
     # Generate list of all currents in the current distance scans
-
+    offset = float(controller.offset.get())
     i_list = []
     for i_dat in data.i_dat_all_combined:
         for value in i_dat:
-            i_list.append(np.log10(abs(value)))
-            #i_list.append(abs(value)) #uncomment for linear plot
+            #FIXME: abs shouldn't be used here because of data inversion. The offset
+            #should avoid problems if big enough, and abs should only invert wild points
+            i_list.append(np.log10(abs(value+offset)))
+            #i_list.append(value) #uncomment for linear plot
     if (len(i_list) < 1):
         error = showerror('Error', 'No data in memory')
         return
@@ -321,21 +324,21 @@ def dat_input(start, finish, bcorfac):
         else:
             #Stitch the channels together
             for i in range(len(i_dat_combined)): 
-                #FIXME Convert to amps from volts, this used to be in an 'else' but 
-                #moved here (less efficient) due to obscure bug?
-                i_dat_combined[i] = i_dat_combined[i] / (i_ls_res) * scale
-                if (i_dat_combined[i] < th_1):
+                if (abs(i_dat_combined[i]) < th_1):
                     #Output below threshold so try and replace it with a higher sensitivity measurement
-                    if (i10_dat_ls[i] > th_2):
+                    if (abs(i10_dat_ls[i]) > th_2):
                         #LSx10 channel is still in operation so use the measurment from there
                         i_dat_combined[i] = i10_dat_ls[i] / (i_ls_res * 10) * scale
                         #i_dat_combined[i] = i_dat_combined[i] / (i_ls_res) * scale
-                    elif ( (i_dat_hs[i] > th_3) and not sat_flag_hs1):
+                    elif ( (abs(i_dat_hs[i]) > th_3) and not sat_flag_hs1):
                         #Limiter should be off so check the HSx1 channelfirst
                         i_dat_combined[i] = i_dat_hs[i] / i_hs_res * scale
                     elif not sat_flag_hs10:
                         #If HSx1 is below threshold then use the HSx10 channel
                         i_dat_combined[i] = i10_dat_hs[i] / (i_hs_res * 10) * scale  
+                else:
+                    i_dat_combined[i] = i_dat_combined[i] / (i_ls_res) * scale
+                
 
         #Now convert the individual channels to currents, could have convoluted this with the above
         #for efficiency at the expense of clarity
@@ -413,7 +416,7 @@ def dat_input(start, finish, bcorfac):
 
             (plat_data, locplat) = plat_seeker(i_dat_ls)
             if locplat:
-                print 'PASSED: plateaus were found', data.err
+                print 'PASSED: plateaus were found'
                 autosave(auto_name, savedir + '_fil_pltfit')
             else:
                 print 'FAILED: no plateaus found'
@@ -893,66 +896,52 @@ class egraph:
         plat_data,
         title,
         ):
-
+        #The limit of the x axis plotted
         xlim = float(controller.xfac.get())
+        #Constant offset to add to each current value to shift the scan from negative region
+        offset = float(controller.offset.get())
         self.ax.cla()  # Clear current axes
 
         # PLOT 1
-        # ax.set_title('Current-distance measurements', fontsize=22)
-
         self.ax.set_yscale('log')
+        #self.ax.set_ylim([-200, 200])
         self.ax.plot(s_dat_ls, i_dat_ls, 'k.', label='LS x1')
         self.ax.plot(s_dat_ls, i10_dat_ls, 'b.', label='LS x10')
         self.ax.plot(s_dat_ls, i_dat_hs, 'g.', label='HS x1')
         self.ax.plot(s_dat_ls, i10_dat_hs, 'r.', label='HS x10')
         self.ax.grid(True)
-
-        # self.ax.set_ylim([1e-8,1e4])
-
         self.ax.set_xlim([0, xlim])
         self.ax.set_xlabel('Distance (nm)')
         self.ax.set_ylabel('Current (nA)')
         self.ax.legend()
 
         # PLOT 2
-
         self.ax2.cla()  # Clear current axes
+        #self.ax2.set_ylim([-100, 500])
         self.ax2.set_yscale('log')
-
-        # print i_dat_combined
-
-        self.ax2.plot(s_dat_ls, i_dat_combined, 'k.',
-                      label='Combined data')
+        #Add the current offset (only for cosmetic purposes to stop negative data getting ignored)
+        i_dat_shifted = []
+        for value in i_dat_combined:
+            shifted_val = value + offset
+            i_dat_shifted.append(shifted_val)
+        self.ax2.plot(s_dat_ls, i_dat_shifted, 'k.',
+                      label='Combined data')#, shift (nA):' + str(offset))
         if controller.autocheck_linfit.get():
             self.ax2.plot(data.s_dat_filtered, data.polyfit_rescaled,
                           'r', label='MSE:' + str(data.err))
         self.ax2.grid(True)
-
-        # self.ax.set_ylim([1e-8,1e4])
-
         self.ax2.set_xlim([0, xlim])
         self.ax2.set_xlabel('Distance (nm)')
-
-        # self.ax2.set_ylabel('Current nA')
-
         self.ax2.legend()
 
         # PLOT 3
-
         self.ax3.cla()  # Clear current axes
-
-        # self.ax2.set_yscale('log')
-        # print i_dat_combined
-
         self.ax3.plot(s_dat_ls, i_dat_ls, 'k.-', label='LS x1')
         self.ax3.plot(s_dat_ls, plat_data, 'b.-', label='Plateau fitting')
         self.ax3.grid(True)
         self.ax3.set_ylim([0, 25000])
         self.ax3.set_xlim([0, 2])
         self.ax3.set_xlabel('Distance (nm)')
-
-        # self.ax3.set_ylabel('Current nA')
-
         self.ax3.legend()
 
         self.canvas.show()
@@ -984,6 +973,7 @@ class controller:
         # Data processing variables
         self.bkgnd_tol = IntVar()
         self.xfac = DoubleVar()
+        self.offset = DoubleVar()
         self.plot_dat = IntVar()
         self.check_dat = IntVar()
         self.check_dat2 = IntVar()
@@ -1056,6 +1046,7 @@ class controller:
             self.finvar.set(5)
             self.bcorfac.set(0.20)
             self.xfac.set(2.00)
+            self.offset.set(20.00)
             self.plot_dat.set(0)
             self.check_dat.set(0)
             self.check_dat2.set(0)
@@ -1111,6 +1102,7 @@ class controller:
             self.finvar.set(data[ 'finvar'])  
             self.bcorfac.set(data[ 'bcorfac'])  
             self.xfac.set(data[ 'xfac'])  
+            self.offset.set(data[ 'offset'])  
             self.plot_dat.set(data[ 'plot_dat'])  
             self.check_dat.set(data[ 'check_dat'])  
             self.check_dat2.set(data[ 'check_dat2'])  
@@ -1244,6 +1236,7 @@ class controller:
         self.SettingsMenu['menu'] = self.SettingsMenu.menu
 
 
+
     def saveData(self):
 
         # Pickle a dictionary containing variables to be saved
@@ -1258,6 +1251,7 @@ class controller:
                 'finvar' : self.finvar.get(),
                 'bcorfac' : self.bcorfac.get(),
                 'xfac' : self.xfac.get(),
+                'offset' : self.offset.get(),
                 'plot_dat' : self.plot_dat.get(),
                 'check_dat' : self.check_dat.get(),
                 'check_dat2' : self.check_dat2.get(),
@@ -1636,6 +1630,20 @@ class controller:
             )
         self.xfactor.grid(row=3, column=1)
 
+        Label(self.data_frame, text='Current offset for OTF plot (nA):'
+              ).grid(row=4, column=0)
+        self.goffset = Spinbox(
+            self.data_frame,
+            from_=0.0,
+            to=1000.0,
+            increment=1.0,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.offset,
+            )
+        self.goffset.grid(row=4, column=1)
+
     def adc_params(self):
 
         # Configure the ADC / STM parameters
@@ -1898,10 +1906,9 @@ class controller:
         i_list = []
         for reading in data.i_dat_all_combined:
             for value in reading:
-
-            # i_list.append(np.log10(float(value)))
-            # i_list.append(value)
-
+                #You wouldn't normally expect negative currents after badkground subtraction
+                #but overshoot in the op amp can sometimes cause them. Need to chuck them away
+                #as opposed to takings the abs. value to avoid creating a false peak!
                 if value > 0:
                     i_list.append(np.log10(value))
         print 'Lists appended, found:', len(i_list), 'data points.'
@@ -2007,9 +2014,11 @@ class controller:
 
 
 root = Tk()
-root.title('Scanmaster 3000 v0.42')
+root.title('Scanmaster 3000 v0.44')
 
 egraph = egraph(root)
+#Create a data container
+data = Data()
 controller = controller(root)
 root.mainloop()
 
