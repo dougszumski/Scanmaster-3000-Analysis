@@ -118,7 +118,7 @@ def scaninput(name):
     position = 0.00
     for line in lines:
         line = line.split()
-        i_dat_ls.append((float(line[0])))  # ignore current sign, correct for resistor /v
+        i_dat_ls.append((float(line[0])))  
         i10_dat_ls.append((float(line[1])))
         i_dat_hs.append((float(line[2])))
         i10_dat_hs.append((float(line[3])))
@@ -521,7 +521,7 @@ def rawfileInput(filename):
     return (i_list_ls_x1, i_list_ls_x10, i_list_hs_x1, i_list_hs_x10)
     infile.close
 
-def groupAvg(data):
+def groupavg(data):
 
     # Returns the average value of a string of data points
     tmp = 0.00
@@ -532,23 +532,25 @@ def groupAvg(data):
     return tmp
 
 
-def fileOutput(
+def fileoutput(
     filename,
-    data,
-    data2,
-    data3,
-    data4,
+    data_1,
+    data_2,
+    data_3,
+    data_4,
     points,
     ):
+    """Writes quad channel data to file."""
+
     FILE = open(filename, 'w')
     for i in range(0, points):
-        FILE.write('%s' % data[i] + '\t %s' % data2[i] + '\t %s'
-                   % data3[i] + '\t %s \n' % data4[i])
+        FILE.write('%s' % data_1[i] + '\t %s' % data_2[i] + '\t %s'
+                   % data_3[i] + '\t %s \n' % data_4[i])
     FILE.close()
 
 
 def chopper(
-    data,
+    data_1,
     data_2,
     data_3,
     data_4,
@@ -556,31 +558,31 @@ def chopper(
     u_th,
     filecounter,
     ):
-
-    # Chop the continuous data file into individual scans
-    # Only data above u_th should be discarded as data below l_th is required for the background correction
-
+    """Chops the continuous data file into individual scans."""
+   
     data_window = []
-    int_bodge = 20  # The number of points to not include from the determined 'end' (prevents problems with other channels)
+    # The number of points to not include from the determined 'end' (prevents problems with other channels)
+    int_bodge = 20 
     window_length = 50
     l_plat_len = 0
     u_plat_len = 0
     counter = 0
     start = 0
     stop = 0
+    
+    # Only data above u_th should be discarded as data below l_th is required for the background correction
+    # Detect it the tip substrate bias is positive or negative to allow auto-inversion of data
+    # The average of the LSx1 channel is a good, but inefficient measure of this
+    # TODO: If the warning appears frequently parameterise this in the GUI with a manual override
 
-    #Detect it the tip substrate bias is positive or negative to allow auto-inversion of data
-    #The average of the LSx1 channel is a good, but inefficient measure of this
-    #TODO: If the warning appears frequently parameterise this in the GUI with a manual override
-
-    dat_avg = np.average(data)
+    dat_avg = np.average(data_1)
     print "LSx1 channel average is: ", dat_avg, "V"
     if (dat_avg < -0.5):
         print "Assuming negative tip-substrate bias"
         #Invert the data
         #FIXME get rid of the now redundant inversion check when reading the split files back in
-        for i in range(len(data)):
-                data[i]   = data[i]   * -1.0
+        for i in range(len(data_1)):
+                data_1[i] = data_1[i]   * -1.0
                 data_2[i] = data_2[i] * -1.0
                 data_3[i] = data_3[i] * -1.0
                 data_4[i] = data_4[i] * -1.0
@@ -593,58 +595,39 @@ def chopper(
     # filecounter = 0
     # Implement minimum
 
-    for value in data:
+    for value in data_1:
         data_window.append(value)
         if len(data_window) > window_length:
-
             # Get rid off the first value to make way for the last
-
             del data_window[0]
         if len(data_window) == window_length:
-
             # Full window so do some checks for lower threshold
-
-            if groupAvg(data_window) < l_th:
-
+            if groupavg(data_window) < l_th:
                 # Found a plateau so increment the length counter
-
                 l_plat_len += 1
-            if groupAvg(data_window) > u_th:
-
+            if groupavg(data_window) > u_th:
                 # Found a plateau so increment the length counter
-
                 u_plat_len += 1
-            if groupAvg(data_window) < u_th and u_plat_len > 0 and stop \
+            if groupavg(data_window) < u_th and u_plat_len > 0 and stop \
                 == 0:
-
                 # Hopefully this is the tip retraction point and from here on the current decays
                 # Stop must be zero otherwise we might end up with background, then decay!
-
                 start = counter  # could make this "counter - u_plat_len" to get all the plateaus but not of interest
-
                 # print "Found upper plateau: ", u_plat_len, " points long, stopping at: ", start
-
                 u_plat_len = 0
-            if groupAvg(data_window) > l_th and l_plat_len > 0 \
+            if groupavg(data_window) > l_th and l_plat_len > 0 \
                 and start != 0:
-
                 # We found the end of the background plateau at the previous counter value
                 # start must be > 0 to ensure we have already found the initial current decay
-
                 stop = counter - int_bodge
-
                 # start is at the location of the last found upper plateau
                 # print "Found lower plateau: ", l_plat_len, " point long, stopping at: ", stop........
-
                 points = stop - start
-
                 # A bit of a 'hatchet job', basically check CH2 remains saturated for x number of points,
                 # akin to checking the gradient of CH1
                 # TODO: Bug here: this assumes the channnel is saturated which is only the case for BJ experiments
-
                 sat_level = data_2[start]
                 sat_pass = True
-                
                 if len(data_2) >= (start+50): #Get rid of obscure error which happened in T54
                     for i in range(0, 50):
                         if sat_level != data_2[start + i]:
@@ -660,7 +643,7 @@ def chopper(
                 # Now check to see if the high sens channel has reached zero, otherwise it's a #*$% end point / measurement
 
                 lowchan_pass = True
-                background_level = groupAvg(data_3[stop - 10:stop])
+                background_level = groupavg(data_3[stop - 10:stop])
                 if background_level > l_th:
                     lowchan_pass = False
                     # The level will depend on the 'characteristic level' of the experiment.
@@ -676,7 +659,7 @@ def chopper(
 
                 if points > controller.min_seg_len.get() and points < controller.max_seg_len.get() and sat_pass \
                     and lowchan_pass:
-                    data_slice = data[start:stop]
+                    data_slice1 = data_1[start:stop]
                     data_slice2 = data_2[start:stop]  # Matching one from x10 channel
                     data_slice3 = data_3[start:stop]
                     data_slice4 = data_4[start:stop]
@@ -688,9 +671,9 @@ def chopper(
                         + '.txt'
                     print 'Reconstructed I(s) scan containing: ', points, \
                         'data points as: ', filename
-                    fileOutput(
+                    fileoutput(
                         filename,
-                        data_slice,
+                        data_slice1,
                         data_slice2,
                         data_slice3,
                         data_slice4,
