@@ -49,6 +49,7 @@ import os  # import command line for file operations
 from subprocess import call
 import string
 import cPickle
+import gzip
 
 # KDE stuff
 
@@ -502,25 +503,6 @@ def autosave(auto_name, dirname):
         os.mkdir(pathvar)
     shutil.copy(targetfile, pathvar + new_name)  # Copy file to pathvar
 
-
-def rawfileInput(filename):
-    print 'Opening: ', filename
-    infile = open(filename, 'r')
-    i_list_ls_x1 = []
-    i_list_ls_x10 = []
-    i_list_hs_x1 = []
-    i_list_hs_x10 = []
-    lines = infile.readlines()
-    for line in lines:
-        a = line.split()
-        i_list_ls_x1.append(float(a[0]))
-        i_list_ls_x10.append(float(a[1]))
-        i_list_hs_x1.append(float(a[2])) 
-        i_list_hs_x10.append(float(a[3]))
-    print 'Data loaded...'
-    return (i_list_ls_x1, i_list_ls_x10, i_list_hs_x1, i_list_hs_x10)
-    infile.close
-
 def groupavg(data):
 
     # Returns the average value of a string of data points
@@ -582,7 +564,7 @@ def chopper(
         #Invert the data
         #FIXME get rid of the now redundant inversion check when reading the split files back in
         for i in range(len(data_1)):
-                data_1[i] = data_1[i]   * -1.0
+                data_1[i] = data_1[i] * -1.0
                 data_2[i] = data_2[i] * -1.0
                 data_3[i] = data_3[i] * -1.0
                 data_4[i] = data_4[i] * -1.0
@@ -744,109 +726,79 @@ def tea_break_maker():
     else:
         print "Skipping questions: nfo.txt already exists"
 
-    # Now for the splitting:
+    # Now for the chopping
     # Assumes you've put the raw data in ../raw/
 
     print 'This is a good time to have tea break...'
 
     # Go into the raw data directory
-    check_flag = False #This is so the check for exiating files is done once only
-
     os.chdir(os.path.abspath('raw'))
+
     for (path, dirs, files) in os.walk(os.getcwd()):
+
         for raw_data_filename in files:
-
-            # Put the split files in a directory named after the file but without the extension
-
-            dirname = raw_data_filename[0:-4]
-
-            # Make a new folder for the split raw data files and cd into it
-
-            os.chdir(os.pardir)  # cd..
-            if os.path.exists(dirname) != True:
-                os.mkdir(dirname)
-            os.chdir(os.path.abspath(dirname))  # returns absolute path of output and changes to that directory
-
-            # This is the location of the data we want to split up
-            
-            dataloc = '../raw/' + raw_data_filename
-            
-            # See if split file aa exists and if it doesn't split up the raw data
-            # TODO: make this more generic instead of relying on default output 'aa' from split
-            
-            if not os.access('aa', os.F_OK):
-                print 'Splitting up', raw_data_filename, 'into the directory', dirname, '...'
-                # NOTE: distro dependent. Decrease number of lines to reduce RAM requirements, at the expense of
-                # destroying scans split between files.  
-                call(['split', '--verbose', '-l 1000000', dataloc, ''])
-            else:
-                print 'Using existing data: target folder not empty'
-
-            # Now start chopping the split raw file
-
-            output = 'chopped' + dirname[6:]
-            print 'Reconstructing I(s) scans into the directory', \
-                output, '...'
-
-            # The filenumber must be reset for every raw data file
-
+            # Reset the file counter for the chopped scans
             filecounter = 0
-            for (path, dirs, files) in os.walk(os.getcwd()):
+            #Number of lines of data to read. 1000000 is about 100 files
+            BLOCK_LENGTH = 100000
+            data = True
+            #Open the raw data file which should be gzipped 
+            with gzip.open(raw_data_filename) as gz_data:
+                # Create an output folder for the individual scans
+                dirname = raw_data_filename[0:-7]
+                output = 'chopped' + dirname[6:]
+                print 'Reconstructing I(s) scans into the directory', output, '...'
+                # Go out of the raw data folder........
+                os.chdir(os.pardir)
+                # Make the output folder for the I(s) scans if it doesn't exist already and cd into it
+                if os.path.exists(output) != True:
+                    os.mkdir(output)
+                os.chdir(os.path.abspath(output))
+                # Reconstruct the I(s) scans only if the the folder is empty
+                # TODO: make this more generic -- get rid of dependence on specified file         
+                if os.access('slice0000.txt', os.F_OK):
+                    print "Skipping scan reconstruction: target folder:", "../" + output, "is not empty"
+                    break
+                while data == True:
+                    #Create empty current lists
+                    i_list_ls_x1 = []
+                    i_list_ls_x10 = []
+                    i_list_hs_x1 = []
+                    i_list_hs_x10 = []
+                    for i in range(BLOCK_LENGTH):
+                        line = gz_data.readline()
+                        if not line:
+                            print "End of raw data: last chunk is", i," lines long."
+                            #Don't do any more while loops
+                            data = False
+                            #Leave the for loop with i lines of data        
+                            break
+                        line = line.split()
+                        #Populate the current lists
+                        i_list_ls_x1.append(float(line[0]))
+                        i_list_ls_x10.append(float(line[1]))
+                        i_list_hs_x1.append(float(line[2])) 
+                        i_list_hs_x10.append(float(line[3]))
+                    #Now reconstruct the scans, but only if there is at least one line of data in the chunk
+                    if line:
+                        filecounter = chopper(
+                            i_list_ls_x1,
+                            i_list_ls_x10,
+                            i_list_hs_x1,
+                            i_list_hs_x10,
+                            controller.scan_l_th.get(),
+                            controller.scan_u_th.get(),
+                            filecounter,
+                            )
+            #Go back to the folder we started in now that the data has been processed
+            os.chdir(os.pardir)    
+            os.chdir(os.path.abspath('raw'))
 
-                # For every split raw data segment chop it up
-
-                for split_raw_data_segment in files:
-
-                    # Read in the ADC channels to individual lists
-
-                    (i_list_ls_x1, i_list_ls_x10, i_list_hs_x1,
-                     i_list_hs_x10) = \
-                        rawfileInput(split_raw_data_segment)
-
-                    # Go out of the split raw data folder........
-
-                    os.chdir(os.pardir)
-
-                    # Make the output folder for the I(s) scans if it doesn't exist already and cd into it
-
-                    if os.path.exists(output) != True:
-                        os.mkdir(output)
-                    os.chdir(os.path.abspath(output))  # returns absolute path of output and change to that directory
-
-                    # Reconstruct the I(s) scans only if the the folder is empty
-                    # TODO: make this more generic -- get rid of dependence on specified file        
-                    #Time period for processing on one split file and estimate remaining time.  
-                    # FIXME: Bug here: Current test only works for first folder! Fix
-
-                    if os.access('slice0000.txt', os.F_OK) and not check_flag:
-                        print "Skipping scan reconstruction: target folder:", "../" + output, "is not empty"
-                        break                    
-
-                    filecounter = chopper(
-                        i_list_ls_x1,
-                        i_list_ls_x10,
-                        i_list_hs_x1,
-                        i_list_hs_x10,
-                        controller.scan_l_th.get(),
-                        controller.scan_u_th.get(),
-                        filecounter,
-                        )
-
-                    check_flag = True                    
-
-                    # L_th normally 0.009, u_th 4.0
-                    # Go back to the split raw data folder
-
-                    os.chdir(os.pardir)  # cd..
-                    os.chdir(os.path.abspath(dirname))
     print 'Finished reconstructing I(s) scans'
-
     # Go back to the root data folder
     # TODO: All this directory changing works fine, but is a bit confusing to the layman and
     # should really be simplified somehow
-
     os.chdir(os.pardir)
-
 
 class egraph:
 
