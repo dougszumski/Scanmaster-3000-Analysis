@@ -98,37 +98,35 @@ def scaninput(name):
     # Reads in the file, filename, reads number of measurements and then extracts I(s) data into two lists
     # Read data from input file
 
-    infile = open(name, 'r')
-    s_dat_ls = []
-    i_dat_ls = []
-    i_dat_hs = []
-    i10_dat_ls = []
-    i10_dat_hs = []
-    lines = infile.readlines()
+    with open(name, 'r') as infile:
+        s_dat_ls = []
+        i_dat_ls = []
+        i_dat_hs = []
+        i10_dat_ls = []
+        i10_dat_hs = []
+        lines = infile.readlines()
 
-    # Reconstruct the x-axis using variables from the menu
+        # Reconstruct the x-axis using variables from the menu
 
-    sampsec = controller.sampsec.get()
-    srange = controller.srange.get()
-    sduration = controller.sduration.get()
+        sampsec = controller.sampsec.get()
+        srange = controller.srange.get()
+        sduration = controller.sduration.get()
 
-    # Total distance travelled by tip in data segment =  (retraction rate * points in measurment) / sampling rate
-    # This is the distance the tip travels between data points
+        # Total distance travelled by tip in data segment =  (retraction rate * points in measurment) / sampling rate
+        # This is the distance the tip travels between data points
 
-    data.interval = srange / sduration / sampsec
-    position = 0.00
-    for line in lines:
-        line = line.split()
-        i_dat_ls.append((float(line[0])))  
-        i10_dat_ls.append((float(line[1])))
-        i_dat_hs.append((float(line[2])))
-        i10_dat_hs.append((float(line[3])))
-        s_dat_ls.append(position)
-        position += data.interval
-    return (i_dat_ls, i10_dat_ls, i_dat_hs, i10_dat_hs, s_dat_ls)
-    infile.close
-
-
+        data.interval = srange / sduration / sampsec
+        position = 0.00
+        for line in lines:
+            line = line.split()
+            i_dat_ls.append((float(line[0])))  
+            i10_dat_ls.append((float(line[1])))
+            i_dat_hs.append((float(line[2])))
+            i10_dat_hs.append((float(line[3])))
+            s_dat_ls.append(position)
+            position += data.interval
+        return (i_dat_ls, i10_dat_ls, i_dat_hs, i10_dat_hs, s_dat_ls)
+ 
 def contour_plot():
 
     # Plots 2d histograms of current distance scans
@@ -524,12 +522,10 @@ def fileoutput(
     ):
     """Writes quad channel data to file."""
 
-    FILE = open(filename, 'w')
-    for i in range(0, points):
-        FILE.write('%s' % data_1[i] + '\t %s' % data_2[i] + '\t %s'
-                   % data_3[i] + '\t %s \n' % data_4[i])
-    FILE.close()
-
+    with open(filename, 'w') as FILE:
+        for i in range(0, points):
+            FILE.write('%s' % data_1[i] + '\t %s' % data_2[i] + '\t %s'
+                       % data_3[i] + '\t %s \n' % data_4[i])
 
 def chopper(
     data_1,
@@ -718,11 +714,10 @@ def tea_break_maker():
         # Write the questions and answer to file for later viewing,
         # but if the file exists then don't overwrite it
 
-        FILE = open('nfo.txt', 'w')
-        for i in range(0, len(answers)):
-            info = questions[i] + '\t' + answers[i] + '\n'
-            FILE.write(info)
-        FILE.close()
+        with open('nfo.txt', 'w') as FILE:
+            for i in range(0, len(answers)):
+                info = questions[i] + '\t' + answers[i] + '\n'
+                FILE.write(info)
     else:
         print "Skipping questions: nfo.txt already exists"
 
@@ -730,6 +725,9 @@ def tea_break_maker():
     # Assumes you've put the raw data in ../raw/
 
     print 'This is a good time to have tea break...'
+
+    #Number of lines of data to read blocks in
+    BLOCK_LENGTH = 100000
 
     # Go into the raw data directory
     os.chdir(os.path.abspath('raw'))
@@ -739,8 +737,6 @@ def tea_break_maker():
         for raw_data_filename in files:
             # Reset the file counter for the chopped scans
             filecounter = 0
-            #Number of lines of data to read. 1000000 is about 100 files
-            BLOCK_LENGTH = 100000
             data = True
             #Open the raw data file which should be gzipped 
             with gzip.open(raw_data_filename) as gz_data:
@@ -1170,8 +1166,6 @@ class controller:
                 , command=self.saveData)
         self.SettingsMenu['menu'] = self.SettingsMenu.menu
 
-
-
     def saveData(self):
 
         # Pickle a dictionary containing variables to be saved
@@ -1216,24 +1210,22 @@ class controller:
                 'min_seg_len' : self.min_seg_len.get(),
                 }
 
-        file = open("settings", 'w')
-        cPickle.dump(data, file)
-        file.close()
-        print 'Settings saved'
+        with open("settings", 'w') as settingsfile:
+            cPickle.dump(data, settingsfile)
+            print 'Settings saved'
 
     def restoreData(self):
 
         # Return an unpickled dictionary with stored variables 
-        file = open("settings", 'r')
-        data = cPickle.load( file)
-        file.close()
-        return data
+        with open("settings", 'r') as settingsfile:
+            data = cPickle.load(settingsfile)
+            return data
  
     def filename_browse(self):
 
         # Browse to select filename
         data.filename = askopenfilename(title='Select I(s) scan...',
-                filetypes=[('Text files', '*.txt'), ('All files', '*')])
+                filetypes=[('Text files', '*.txt'), ('Gzipped files', '*.gz'), ('All files', '*')])
 
     def quit(self):
         self.ans = askokcancel('Verify exit', 'Are you sure?')
@@ -1255,13 +1247,12 @@ class controller:
             self.recon_frame.pack(side=TOP, padx=50, pady=5)
             self.text = Text(self.recon_frame, width=100, height=20)
             self.text.grid()
-            FILE = open('nfo.txt', 'r')
-            lines = FILE.readlines()
-            number = 1.0
-            for line in lines:
-                self.text.insert(number, line)
-                number += 1.0
-            FILE.close()
+            with open('nfo.txt', 'r') as FILE:
+                lines = FILE.readlines()
+                number = 1.0
+                for line in lines:
+                    self.text.insert(number, line)
+                    number += 1.0
         else:
 
             #Display an error if file isn't there
