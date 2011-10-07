@@ -185,12 +185,11 @@ def export_current_data():
         return
 
     #Write it to file 
-    FILE = asksaveasfile(mode='w', title='Save current list as...')
-    if FILE:
-        for value in i_list:
-            FILE.write('%s \n' % value)
-        info = showinfo('Notice', 'File saved')
-        FILE.close()
+    with asksaveasfile(mode='w', title='Save current list as...') as FILE:
+        if FILE:
+            for value in i_list:
+                FILE.write('%s \n' % value)
+            info = showinfo('Notice', 'File saved')
 
 
 def plat_seeker(current_trace):
@@ -726,9 +725,6 @@ def tea_break_maker():
 
     print 'This is a good time to have tea break...'
 
-    #Number of lines of data to read blocks in
-    BLOCK_LENGTH = 100000
-
     # Go into the raw data directory
     os.chdir(os.path.abspath('raw'))
 
@@ -761,7 +757,7 @@ def tea_break_maker():
                     i_list_ls_x10 = []
                     i_list_hs_x1 = []
                     i_list_hs_x10 = []
-                    for i in range(BLOCK_LENGTH):
+                    for i in range(controller.chunksize.get()):
                         line = gz_data.readline()
                         if not line:
                             print "End of raw data: last chunk is", i," lines long."
@@ -951,6 +947,7 @@ class controller:
         #Chopper parameters
         self.scan_u_th = DoubleVar()
         self.scan_l_th = DoubleVar()
+        self.chunksize = IntVar()
         self.max_seg_len = IntVar()
         self.min_seg_len = IntVar()
 
@@ -1015,6 +1012,7 @@ class controller:
             #Chopper parameters
             self.scan_u_th.set(4.0)
             self.scan_l_th.set(0.009)
+            self.chunksize.set(1000000)
             self.max_seg_len.set(3200)
             self.min_seg_len.set(2200)
 
@@ -1059,6 +1057,7 @@ class controller:
             self.min_points_plat.set(data[ 'min_points_plat'])  
             self.scan_u_th.set(data[ 'scan_u_th'])  
             self.scan_l_th.set(data[ 'scan_l_th'])  
+            self.chunksize.set(data[ 'chunksize'])  
             self.max_seg_len.set(data[ 'max_seg_len'])  
             self.min_seg_len.set(data[ 'min_seg_len'])  
 
@@ -1206,6 +1205,7 @@ class controller:
                 'min_points_plat' : self.min_points_plat.get(),
                 'scan_u_th' : self.scan_u_th.get(),
                 'scan_l_th' : self.scan_l_th.get(),
+                'chunksize' : self.chunksize.get(),
                 'max_seg_len' : self.max_seg_len.get(),
                 'min_seg_len' : self.min_seg_len.get(),
                 }
@@ -1324,6 +1324,20 @@ class controller:
             textvariable=self.scan_l_th,
             )
         self.l_th.grid(row=3, column=1)
+
+        Label(self.chopper_frame, text='Raw data chunk input size').grid(row=4,
+                column=0)
+        self.l_th = Spinbox(
+            self.chopper_frame,
+            from_=0,
+            to=10000000,
+            increment=1,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.scan_l_th,
+            )
+        self.l_th.grid(row=4, column=1)
 
        
 
@@ -1940,7 +1954,7 @@ class controller:
 
 
 root = Tk()
-root.title('Scanmaster 3000 v0.44')
+root.title('Scanmaster 3000 v0.45')
 
 egraph = egraph(root)
 #Create a data container
