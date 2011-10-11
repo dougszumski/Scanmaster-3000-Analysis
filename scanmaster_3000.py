@@ -688,12 +688,11 @@ def tea_break_maker():
 
     # Have a poke around in the raw directory so we can ask for comments on each file within
 
-    os.chdir(os.path.abspath('raw'))
-    for (path, dirs, files) in os.walk(os.getcwd()):
-        for filename in files:
-            # For each precious measurement we must have a description
-            questions.append(filename
-                             + " details (bias/setpoint/other)	:")
+    files = os.listdir(os.path.abspath('raw'))
+    for filename in files:
+        # For each precious measurement we must have a description
+        questions.append(filename
+                         + " details (bias/setpoint/other)	:")
 
     #Generate some dialogue to guide/warn the user
     if (len(files) < 1):
@@ -702,8 +701,7 @@ def tea_break_maker():
     info = showinfo('Scan reconstructor', 'Refer to the terminal')
 
     answers = []
-    os.chdir(os.pardir)  # 'cd..
-
+   
     # Now ask the questions
     if not os.access('nfo.txt', os.F_OK):
         for question in questions:
@@ -1917,32 +1915,21 @@ class controller:
         data.file_newnum = 0
         # Set the number of files to read in automatically
         auto_read = controller.auto_read.get()
-
         if auto_read == 1:
-
             # Automatically set file input range if so desired by the user
             target_folder = data.filename[0:string.rfind(data.filename, '/')]
-
-            # Save the current working directory
-            cwd_bak = os.getcwd()
-
             # Have a poke around the user selected data directory for the number of files
             # which must be sequentially numbered
-            os.chdir(target_folder)
+            files = os.listdir(os.path.abspath(target_folder))
             filenumber_list = []
-            for (path, dirs, files) in os.walk(os.getcwd()):
-                for filename in files:
-                    filenumber_list.append(int(filename[-8:-4]))
+            for filename in files:
+                filenumber_list.append(int(filename[-8:-4]))
             start = min(filenumber_list)
             finish = max(filenumber_list)
-
-            # Go back to the current working directory
-            os.chdir(cwd_bak)
         else:
             # Use the default or user set input range
             start = int(self.stavar.get())
             finish = int(self.finvar.get())
-
         bcorfac = self.bcorfac.get()
         dat_input(start, finish, bcorfac)
         print 'End of file input'
@@ -1954,7 +1941,7 @@ class controller:
 
 
 root = Tk()
-root.title('Scanmaster 3000 v0.45')
+root.title('Scanmaster 3000 v0.46')
 
 egraph = egraph(root)
 #Create a data container
