@@ -424,7 +424,6 @@ def dat_input(start, finish, bcorfac):
         if controller.plot_dat.get() > 0:
 
             # If we haven't already looked for plateaus then we better go do it now so we can plot them on the graph
-
             if controller.autocheck_pltfit.get() == False:
                 (plat_data, locplat) = plat_seeker(i_dat_ls)
             egraph.updater(
@@ -666,9 +665,8 @@ def chopper(
 
 def tea_break_maker():
 
-    # Deals with reading all raw data files from the ADC and splitting them into I(s) scans using chopper
+    """Deals with reading all raw data files from the ADC and splitting them into I(s) scans using chopper"""
     # Attempt to prevent laziness by asking some questions about the experiment before processing the data
-
     # After these have been answered they'll be plenty of time for a tea break.
 
     questions = [
@@ -687,7 +685,6 @@ def tea_break_maker():
         ]
 
     # Have a poke around in the raw directory so we can ask for comments on each file within
-
     files = os.listdir(os.path.abspath('raw'))
     for filename in files:
         # For each precious measurement we must have a description
@@ -707,10 +704,8 @@ def tea_break_maker():
         for question in questions:
             var = raw_input(question)
             answers.append(var)
-
         # Write the questions and answer to file for later viewing,
         # but if the file exists then don't overwrite it
-
         with open('nfo.txt', 'w') as FILE:
             for i in range(0, len(answers)):
                 info = questions[i] + '\t' + answers[i] + '\n'
@@ -720,14 +715,13 @@ def tea_break_maker():
 
     # Now for the chopping
     # Assumes you've put the raw data in ../raw/
-
     print 'This is a good time to have tea break...'
 
     # Go into the raw data directory
-    os.chdir(os.path.abspath('raw'))
-
-    for (path, dirs, files) in os.walk(os.getcwd()):
-
+    original_directory = os.getcwd()
+    try:
+        os.chdir(os.path.abspath('raw'))
+        files = os.listdir(os.getcwd())
         for raw_data_filename in files:
             # Reset the file counter for the chopped scans
             filecounter = 0
@@ -739,56 +733,53 @@ def tea_break_maker():
                 output = 'chopped' + dirname[6:]
                 print 'Reconstructing I(s) scans into the directory', output, '...'
                 # Go out of the raw data folder........
-                os.chdir(os.pardir)
-                # Make the output folder for the I(s) scans if it doesn't exist already and cd into it
-                if os.path.exists(output) != True:
-                    os.mkdir(output)
-                os.chdir(os.path.abspath(output))
-                # Reconstruct the I(s) scans only if the the folder is empty
-                # TODO: make this more generic -- get rid of dependence on specified file         
-                if os.access('slice0000.txt', os.F_OK):
-                    print "Skipping scan reconstruction: target folder:", "../" + output, "is not empty"
-                    break
-                while data == True:
-                    #Create empty current lists
-                    i_list_ls_x1 = []
-                    i_list_ls_x10 = []
-                    i_list_hs_x1 = []
-                    i_list_hs_x10 = []
-                    for i in range(controller.chunksize.get()):
-                        line = gz_data.readline()
-                        if not line:
-                            print "End of raw data: last chunk is", i," lines long."
-                            #Don't do any more while loops
-                            data = False
-                            #Leave the for loop with i lines of data        
-                            break
-                        line = line.split()
-                        #Populate the current lists
-                        i_list_ls_x1.append(float(line[0]))
-                        i_list_ls_x10.append(float(line[1]))
-                        i_list_hs_x1.append(float(line[2])) 
-                        i_list_hs_x10.append(float(line[3]))
-                    #Now reconstruct the scans, but only if there is at least one line of data in the chunk
-                    if line:
-                        filecounter = chopper(
-                            i_list_ls_x1,
-                            i_list_ls_x10,
-                            i_list_hs_x1,
-                            i_list_hs_x10,
-                            controller.scan_l_th.get(),
-                            controller.scan_u_th.get(),
-                            filecounter,
-                            )
-            #Go back to the folder we started in now that the data has been processed
-            os.chdir(os.pardir)    
-            os.chdir(os.path.abspath('raw'))
-
-    print 'Finished reconstructing I(s) scans'
-    # Go back to the root data folder
-    # TODO: All this directory changing works fine, but is a bit confusing to the layman and
-    # should really be simplified somehow
-    os.chdir(os.pardir)
+                raw_directory = os.getcwd()
+                try:
+                    os.chdir(os.pardir)
+                    # Make the output folder for the I(s) scans if it doesn't exist already and cd into it
+                    if os.path.exists(output) != True:
+                        os.mkdir(output)
+                    os.chdir(os.path.abspath(output))
+                    # Reconstruct the I(s) scans only if the the folder is empty       
+                    if os.listdir(os.getcwd()):
+                        print "Skipping scan reconstruction: target folder:", "../" + output, "is not empty"
+                        break
+                    while data == True:
+                        #Create empty current lists
+                        i_list_ls_x1 = []
+                        i_list_ls_x10 = []
+                        i_list_hs_x1 = []
+                        i_list_hs_x10 = []
+                        for i in range(controller.chunksize.get()):
+                            line = gz_data.readline()
+                            if not line:
+                                print "End of raw data: last chunk is", i," lines long."
+                                #Don't do any more while loops
+                                data = False
+                                #Leave the for loop with i lines of data        
+                                break
+                            line = line.split()
+                            #Populate the current lists
+                            i_list_ls_x1.append(float(line[0]))
+                            i_list_ls_x10.append(float(line[1]))
+                            i_list_hs_x1.append(float(line[2])) 
+                            i_list_hs_x10.append(float(line[3]))
+                        #Now reconstruct the scans, but only if there is at least one line of data in the chunk
+                        if line:
+                            filecounter = chopper(
+                                i_list_ls_x1,
+                                i_list_ls_x10,
+                                i_list_hs_x1,
+                                i_list_hs_x10,
+                                controller.scan_l_th.get(),
+                                controller.scan_u_th.get(),
+                                filecounter,
+                                )
+                finally:
+                    os.chdir(raw_directory)
+    finally:
+        print 'Finished reconstructing I(s) scans'
+        os.chdir(original_directory)
 
 class egraph:
 
@@ -1167,7 +1158,6 @@ class controller:
 
         # Pickle a dictionary containing variables to be saved
         # See the default settings above for what they do
-
         data = {'lowres' : self.lowres.get(),
                 'highres' : self.highres.get(),
                 'th_1' : self.th_1.get(),
