@@ -30,6 +30,9 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, \
     NavigationToolbar2TkAgg
 from matplotlib.figure import Figure
 import sys
+from matplotlib.colors import LogNorm
+
+
 
 # Dialogue
 
@@ -130,18 +133,6 @@ def scaninput(name):
 def contour_plot():
 
     # Plots 2d histograms of current distance scans
-    # Generate list of all currents in the current distance scans
-    offset = float(controller.offset.get())
-    i_list = []
-    for i_dat in data.i_dat_all_combined:
-        for value in i_dat:
-            #FIXME: abs shouldn't be used here because of data inversion. The offset
-            #should avoid problems if big enough, and abs should only invert wild points
-            i_list.append(np.log10(abs(value+offset)))
-            #i_list.append(value) #uncomment for linear plot
-    if (len(i_list) < 1):
-        error = showerror('Error', 'No data in memory')
-        return
 
     # Generate list of all distances. This list will be the same length as the current list and therefore
     # the indices will be directly related.
@@ -149,6 +140,27 @@ def contour_plot():
     for s_dat in data.s_dat_all_ls:
         for value in s_dat:
             s_list.append(value)
+
+    # Generate list of all currents in the current distance scans
+    offset = float(controller.offset.get())
+    i_list = []
+    for i_dat in data.i_dat_all_combined:
+        for value in i_dat:
+            #FIXME: abs shouldn't be used here because of data inversion. The offset
+            #should avoid problems if big enough, and abs should only invert wild points
+            if value > 0.0:
+                i_list.append(np.log10(value+offset))
+            else:   
+            #FIXME Shift negative data 'under the bed' for now
+                i_list.append(np.log10(0.00001+offset))
+                
+            #i_list.append(np.log10(abs(value+offset)))
+            #i_list.append(value) #uncomment for linear plot
+    if (len(i_list) < 1):
+        error = showerror('Error', 'No data in memory')
+        return
+
+  
 
     # Plot the 2D histogram
     (H, xedges, yedges) = np.histogram2d(i_list, s_list,
@@ -160,12 +172,15 @@ def contour_plot():
             controller.xmax_contour.get()]], normed=True)
     (H.shape, xedges.shape, yedges.shape)
     extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]  # Don't forget -1 means the last item in the list!
-    plt.imshow(H, origin='lower', extent=extent, interpolation='nearest')
-    cb = plt.colorbar()
-    cb.set_label('counts (normalised)')
+    
+    plt.imshow(H, origin='lower', extent=extent, interpolation='nearest', norm=LogNorm(vmin=0.01, vmax=0.5))
+    cb = plt.colorbar(ticks=[0.01, 0.1, 0.5])
+    cb.set_ticklabels([0.01,0.1,0.5])
+
+    cb.set_label('log_10[counts] (normalised)')
     plt.title('I(s) scan 2D histogram')
     plt.xlabel('Distance (nm)')
-    plt.ylabel('log10[current (nA)]')
+    plt.ylabel('log_10[current (nA)]')
     plt.show()
 
 def export_current_data():
@@ -195,9 +210,6 @@ def export_current_data():
 def plat_seeker(current_trace):
 
     # Search data in current_trace for plateaus
-
-    # Fetch variables from GUI for plateau seek
-
     num_data_points = len(current_trace)
     plat_max_grad = controller.plat_max_grad.get()
     background_tol = controller.background_tol.get()
@@ -207,7 +219,6 @@ def plat_seeker(current_trace):
     min_points_plat = controller.min_points_plat.get()
 
     # Attempt to fit plateaus of decreasing length to current trace using 'legacy' Fortran code for speed
-
     (p_dat, p_avg, p_crd) = plat_seek.s_dev(
         max_points_plat,
         min_points_plat,
@@ -221,14 +232,12 @@ def plat_seeker(current_trace):
         )
 
     # Did we find a plateau? - more efficient way to do this is in the Fortran module
-
     if sum(p_avg) > 0.00:
         locplat = True
     else:
         locplat = False
 
     # Return list of length current_trace, but with only the plateau average non-zero (if found)
-
     return (p_avg, locplat)
 
 
@@ -296,17 +305,6 @@ def dat_input(start, finish, bcorfac):
         i_ls_res = int(controller.lowres.get())
         i_hs_res = int(controller.highres.get())
         scale = 1e9  # convert to nanoamps
-
-        #Figure out if the scan is negative or not, using sum for average and invert if it is
-        #TODO Delete this when sure as it should now be redundant following inversion upon initial data
-        # stream reading
-        #if (sum(i_dat_ls) < 0.0):
-        #    #Invert the measurement
-        #    for i in range(len(i_dat_ls)):
-        #        i_dat_ls[i] = i_dat_ls[i] * -1.0 
-        #        i10_dat_ls[i] = i10_dat_ls[i] * -1.0
-        #        i_dat_hs[i] = i_dat_hs[i] * -1.0
-        #        i10_dat_hs[i] = i10_dat_hs[i] * -1.0
 
         #Make a copy of the list (note to self: direct assignment creates a pointer to the list which caused minor hair loss)
         #Important: This contains voltages so they can be compared directly to the thresholds
@@ -439,24 +437,19 @@ def dat_input(start, finish, bcorfac):
         if controller.check_dat.get() > 0:
             userinput(auto_name)
 
-
-
 def back_correct(i_dat, bcorfac):
 
     # Correct data for background offset
     # Define begin and end for background average
-
     end = len(i_dat)
     final_int = int(end * bcorfac)  # add correction factor later
     begin = int(end - final_int)
 
     # Calculate the average of the background
-
     fin_avg = sum(i_dat[begin:end]) / final_int
 
     # Subtract the average from every current in the I(s) measurement
-
-    for j in range(0, end):
+    for j in range(end):
         i_dat[j] = i_dat[j] - fin_avg
     return i_dat
 
@@ -506,7 +499,6 @@ def groupavg(data):
     for value in data:
         tmp += value
     tmp /= len(data)
-    # return abs(tmp)
     return tmp
 
 
@@ -1323,7 +1315,7 @@ class controller:
             width=10,
             wrap=True,
             validate='all',
-            textvariable=self.scan_l_th,
+            textvariable=self.chunksize,
             )
         self.l_th.grid(row=4, column=1)
 
@@ -1834,9 +1826,10 @@ class controller:
         i_list = []
         for reading in data.i_dat_all_combined:
             for value in reading:
-                #You wouldn't normally expect negative currents after badkground subtraction
+                #FIXME You wouldn't normally expect negative currents after badkground subtraction
                 #but overshoot in the op amp can sometimes cause them. Need to chuck them away
                 #as opposed to takings the abs. value to avoid creating a false peak!
+                #This has the effect of vastly reducing the background peak!
                 if value > 0:
                     i_list.append(np.log10(value))
         print 'Lists appended, found:', len(i_list), 'data points.'
