@@ -293,12 +293,11 @@ def dat_input(start, finish, bcorfac):
         sat_flag_hs10 = False     
         #TODO Add the 6.0V here as a parameter in the GUI. It is a function of the limiter circuit.   
         if (fin_avg_hs1 > 6.0):
-            print "Channels HSx1 and HSx10 are saturated and have been ignored"
+            print "WARNING: Channels HSx1 and HSx10 are saturated and have been ignored"
             sat_flag_hs1 = True
             #It follows that HSx10 must have also saturated
             sat_flag_hs10 = True
-        elif (fin_avg_hs1 > 6.0):
-            print "Channel HSx10 saturated and has been ignored"
+        elif (fin_avg_hs10 > 6.0):
             sat_flag_hs10 = True
             
         #Get the resistor values
@@ -312,29 +311,36 @@ def dat_input(start, finish, bcorfac):
 
         #Set this to true to use only the LSx1 channel
         single_chan = False
+
         if single_chan:
             #Test for only one channel
             for i in range(len(i_dat_combined)):
                 #if i_dat_combined[i] 
                 i_dat_combined[i] = i_dat_combined[i] / (i_ls_res) * scale
         else:
-            #Stitch the channels together
+            #Stitch the channels together, using the least sensitive non-saturated channel (top down approach)
             for i in range(len(i_dat_combined)): 
                 if (abs(i_dat_combined[i]) < th_1):
                     #Output below threshold so try and replace it with a higher sensitivity measurement
                     if (abs(i10_dat_ls[i]) > th_2):
                         #LSx10 channel is still in operation so use the measurment from there
                         i_dat_combined[i] = i10_dat_ls[i] / (i_ls_res * 10) * scale
-                        #i_dat_combined[i] = i_dat_combined[i] / (i_ls_res) * scale
-                    elif ( (abs(i_dat_hs[i]) > th_3) and not sat_flag_hs1):
-                        #Limiter should be off so check the HSx1 channelfirst
+                    elif ((abs(i_dat_hs[i]) > th_3) and not sat_flag_hs1):
+                        #Limiter is off, HSx1 channel is in operation
                         i_dat_combined[i] = i_dat_hs[i] / i_hs_res * scale
                     elif not sat_flag_hs10:
-                        #If HSx1 is below threshold then use the HSx10 channel
+                        #If HSx1 is below threshold then use the HSx10 channel regardless
                         i_dat_combined[i] = i10_dat_hs[i] / (i_hs_res * 10) * scale  
+                    elif not sat_flag_hs1:
+                        #If the above fails because HSx10 is saturated fall back to HSx1 as that's the best we have
+                        i_dat_combined[i] = i_dat_hs[i] / i_hs_res * scale
+                    else:
+                        #If both HSx1 and HSx10 channels are saturated then use LSx10
+                        #NOTE: In this case the measurement is probably useless for anything but a break junction
+                        i_dat_combined[i] = i10_dat_ls[i] / (i_ls_res * 10) * scale  
                 else:
+                    #LSx1 channel is fine so convert to current
                     i_dat_combined[i] = i_dat_combined[i] / (i_ls_res) * scale
-                
 
         #Now convert the individual channels to currents, could have convoluted this with the above
         #for efficiency at the expense of clarity
