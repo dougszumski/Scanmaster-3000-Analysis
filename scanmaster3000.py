@@ -78,8 +78,6 @@ class Data:
         self.i_dat_all_hs = []
         self.i10_dat_all_ls = []
         self.i10_dat_all_hs = []
-        # Plateau data
-        self.plat_dat_ls = []
         # The recombined current data
         self.i_dat_all_combined = []
         # Reconstructed spatial array to go with all current measurements
@@ -94,8 +92,18 @@ class Data:
         # Linear regression related stuff for plotting
         self.polyfit_rescaled = []
         self.err = 0.00  # Error on least squares fit for linear reg.
-
-
+    def clear_current_lists(self):
+        # Four current channels from the quad amp
+        self.i_dat_all_ls = []
+        self.i_dat_all_hs = []
+        self.i10_dat_all_ls = []
+        self.i10_dat_all_hs = []
+        # The recombined current data
+        self.i_dat_all_combined = []
+        # Reconstructed spatial array to go with all current measurements
+        self.s_dat_all_ls = []
+        print "Current lists cleared"
+        
 def scaninput(name):
 
     # Reads in the file, filename, reads number of measurements and then extracts I(s) data into two lists
@@ -248,38 +256,25 @@ def dat_input(start, finish, bcorfac):
     # by averaging over the final fraction of the data set in the GUI, then appends the I(s) data to a list
 
     file_prefix = data.filename[0:-8]  # includes file path 4 digits
-    # file_prefix = data.filename[0:-7] #includes file path 3 digits
     file_ext = '.txt'
-    file_number = data.filename[-8:-4]  # 4 digitis
-    # file_number = data.filename[-7:-4] # 3 digits
-    #FIXME: Delete: initiliaised in the data class
-    data.i_dat_all_ls = []  # current
-    data.i10_dat_all_ls = []
-    data.i_dat_all_hs = []
-    data.i10_dat_all_hs = []
-    data.s_dat_all_ls = []  # distance
-    data.i_dat_all_combined = []
+    file_number = data.filename[-8:-4]  # 4 digits
     print 'Reading files...'
     for i in range(start, finish + 1):
         # Generate filename
         auto_name = file_prefix + str(i).zfill(4) + file_ext  # 4 digits
         # auto_name = file_prefix + str(i).zfill(3) + file_ext #3digits
         print 'Reading...', auto_name
-
         #File prefix for filtered saved directory, extracted from the current directory
         temp = auto_name[0:string.rfind(auto_name, '/')]
         savedir = temp[string.rfind(temp, '/')+1:len(temp)]
-
         # Read in data from file
         (i_dat_ls, i10_dat_ls, i_dat_hs, i10_dat_hs, s_dat_ls) = \
             scaninput(auto_name)
-
         # Work out where to chop the channels whilst the data is stored as a voltage
         # Threshold set from the GUI: Normally these are 0.1V 
         th_1 = controller.th_1.get()
         th_2 = controller.th_2.get()
         th_3 = controller.th_3.get() 
-
         #Now have a look at the background levels on the HS channels to see if they've saturated
         end = len(i_dat_hs)
         final_int = int(end * bcorfac)
@@ -287,7 +282,6 @@ def dat_input(start, finish, bcorfac):
         # Calculate the absolute average of the background 
         fin_avg_hs1 = abs(sum(i_dat_hs[begin:end]) / final_int)
         fin_avg_hs10 = abs(sum(i10_dat_hs[begin:end]) / final_int)
-       
         #Now see if the channels have saturated
         sat_flag_hs1 = False
         sat_flag_hs10 = False     
@@ -299,19 +293,15 @@ def dat_input(start, finish, bcorfac):
             sat_flag_hs10 = True
         elif (fin_avg_hs10 > 6.0):
             sat_flag_hs10 = True
-            
         #Get the resistor values
         i_ls_res = int(controller.lowres.get())
         i_hs_res = int(controller.highres.get())
         scale = 1e9  # convert to nanoamps
-
         #Make a copy of the list (note to self: direct assignment creates a pointer to the list which caused minor hair loss)
         #Important: This contains voltages so they can be compared directly to the thresholds
         i_dat_combined = list(i_dat_ls)
-
         #Set this to true to use only the LSx1 channel
         single_chan = False
-
         if single_chan:
             #Test for only one channel
             for i in range(len(i_dat_combined)):
@@ -895,6 +885,7 @@ class controller:
         self.autocheck_avgcur = IntVar()
         self.autocheck_pltfit = IntVar()
         self.auto_read = IntVar()
+        self.clear_global_data = IntVar()
 
          # KDE
         self.kde_bandwidth = DoubleVar()
@@ -950,11 +941,11 @@ class controller:
             # Set default values for variables
         
             # Resistor defaults
-            self.lowres.set(99559)  # Calibrated from resistor measurements, assumes output voltage is correct from STM
-            self.highres.set(91474235)  # Calibrated from resistor measurements, assumes output voltage is correct from STM
-            self.th_1.set(0.1)  # Ch2 is simply Ch1 x 10 so at this stage Ch2 is at 90% maximum and can take over
-            self.th_2.set(0.1)  # Around here the limiter turns off, plus a bit more to stop dodgy overlap
-            self.th_3.set(0.1)  # Ch3 is on and can take over
+            self.lowres.set(10000)  # Calibrate from resistor measurements, assumes output voltage is correct from STM
+            self.highres.set(10000000)  # Calibrate from resistor measurements, assumes output voltage is correct from STM
+            self.th_1.set(1.0)  # Ch2 is simply Ch1 x 10 so at this stage Ch2 is at 90% maximum and can take over
+            self.th_2.set(0.08)  # Around here the limiter turns off, plus a bit more to stop dodgy overlap
+            self.th_3.set(1.0)  # Ch3 is on and can take over
             
             #Data input
             self.stavar.set(1)
@@ -966,6 +957,7 @@ class controller:
             self.check_dat.set(0)
             self.check_dat2.set(0)
             self.auto_read.set(0)
+            self.clear_global_data.set(1)
 
             # Data filtering defaults:
             self.datfillogi.set(-1000)
@@ -977,7 +969,7 @@ class controller:
             
             # STM/ADC parameters used for reconstructing distance defaults
             self.sampsec.set(10000)
-            self.srange.set(4)
+            self.srange.set(6)
             self.sduration.set(0.3)
 
             # Contour plot parameter defaults
@@ -1023,6 +1015,7 @@ class controller:
             self.check_dat.set(data[ 'check_dat'])  
             self.check_dat2.set(data[ 'check_dat2'])  
             self.auto_read.set(data[ 'auto_read'])  
+            self.clear_global_data.set(data[ 'clear_global_data'])  
             self.datfillogi.set(data[ 'datfillogi'])  
             self.kde_bandwidth.set(data[ 'kde_bandwidth'])  
             self.kde_stop.set(data[ 'kde_stop'])  
@@ -1092,9 +1085,10 @@ class controller:
                 , underline=0, background='grey', activebackground='green'
                 , command=export_current_data)
         self.ScanAnalysis.menu.add('separator')
+        self.ScanAnalysis.menu.add_checkbutton(label='Clear global data on read'
+                , underline=0, variable=self.clear_global_data)
         self.ScanAnalysis.menu.add_checkbutton(label='Read all scans in folder'
                 , underline=0, variable=self.auto_read)
-        self.ScanAnalysis.menu.add('separator')
         self.ScanAnalysis.menu.add_checkbutton(label='Plot scans on-the-fly'
                 , underline=0, variable=self.plot_dat)
         self.ScanAnalysis.menu.add('separator')
@@ -1170,6 +1164,7 @@ class controller:
                 'check_dat' : self.check_dat.get(),
                 'check_dat2' : self.check_dat2.get(),
                 'auto_read' : self.auto_read.get(),
+                'clear_global_data' : self.clear_global_data.get(),
                 'datfillogi' : self.datfillogi.get(),
                 'kde_bandwidth' : self.kde_bandwidth.get(),
                 'kde_stop' : self.kde_stop.get(),
@@ -1920,17 +1915,19 @@ class controller:
             start = int(self.stavar.get())
             finish = int(self.finvar.get())
         bcorfac = self.bcorfac.get()
+        #Clear the current lists if you don't want to combine data sets
+        if controller.clear_global_data.get() == 1:
+            data.clear_current_lists()
         dat_input(start, finish, bcorfac)
         print 'End of file input'
 
     def importdata(self):
-        
         # Needs to call tea break maker
         tea_break_maker()
 
 
 root = Tk()
-root.title('Scanmaster 3000 v0.46')
+root.title('Scanmaster 3000 v0.48')
 
 egraph = egraph(root)
 #Create a data container
