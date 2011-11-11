@@ -4,3 +4,4 @@ scanmaster3000.py : Main script for data analysis
 plat_seek.so : Python module generated with F2PY for finding plateaus in data
 plat_seek.f90 : Fortran module for locating plateaus in the data stream. 
 calibrate.py : Helper script for calibration of preamplifiers
+settings : Optimised settings file for the current state-of-the-art 
