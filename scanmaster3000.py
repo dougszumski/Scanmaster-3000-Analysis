@@ -106,7 +106,7 @@ class Data:
         
 def scaninput(name):
 
-    # Reads in the file, filename, reads number of measurements and then extracts I(s) data into two lists
+    # Reads in the file, filename, reads number of measurements and then extracts I(s) data into lists
     # Read data from input file
 
     with open(name, 'r') as infile:
@@ -124,8 +124,7 @@ def scaninput(name):
         sduration = controller.sduration.get()
 
         # Total distance travelled by tip in data segment =  (retraction rate * points in measurment) / sampling rate
-        # This is the distance the tip travels between data points
-
+        # This is the distance the tip travels between data points only
         data.interval = srange / sduration / sampsec
         position = 0.00
         for line in lines:
@@ -238,15 +237,15 @@ def plat_seeker(current_trace):
         current_trace,
         num_data_points,
         )
-
+    #TODO Add this in the fortran module
     # Did we find a plateau? - more efficient way to do this is in the Fortran module
     if sum(p_avg) > 0.00:
-        locplat = True
+        p_loc = True
     else:
-        locplat = False
+        p_loc = False
 
     # Return list of length current_trace, but with only the plateau average non-zero (if found)
-    return (p_avg, locplat)
+    return (p_avg, p_loc, p_crd)
 
 
 def dat_input(start, finish, bcorfac):
@@ -406,8 +405,8 @@ def dat_input(start, finish, bcorfac):
 
             # Have a look for some plateaus to highlight; you never know, there might actually be some!
 
-            (plat_data, locplat) = plat_seeker(i_dat_ls)
-            if locplat:
+            (plat_avg, plat_loc, plat_crd) = plat_seeker(i_dat_ls)
+            if plat_loc:
                 print 'PASSED: plateaus were found'
                 autosave(auto_name, savedir + '_fil_pltfit')
             else:
@@ -419,7 +418,7 @@ def dat_input(start, finish, bcorfac):
 
             # If we haven't already looked for plateaus then we better go do it now so we can plot them on the graph
             if controller.autocheck_pltfit.get() == False:
-                (plat_data, locplat) = plat_seeker(i_dat_ls)
+                plat_avg, plat_loc, plat_crd = plat_seeker(i_dat_ls)
             egraph.updater(
                 s_dat_ls,
                 i_dat_ls,
@@ -427,11 +426,67 @@ def dat_input(start, finish, bcorfac):
                 i_dat_hs,
                 i10_dat_hs,
                 i_dat_combined,
-                plat_data,
+                plat_avg,
                 auto_name,
                 )
         if controller.check_dat.get() > 0:
             userinput(auto_name)
+
+def plat_sync(start, finish):
+    """Synchronises I(s) scans from G0 plateaus"""
+    filecounter = 0
+    #FIXME: these are used to convert the data from current back to volts - not ideal 
+    #Other options are: call plat_sync from dat input, create copy of voltage arrays etc..    
+    i_ls_res = int(controller.lowres.get())
+    i_hs_res = int(controller.highres.get())
+    scale = 1e9  # convert to nanoamps
+    #Save current directory (should be at script level)
+    original_directory = os.getcwd()
+    #Make new directoy to work in:
+    working_dir = "psyncfiltered"
+    if os.path.exists(working_dir) != True:
+        os.mkdir(working_dir)
+    try:
+        os.chdir(os.path.abspath(working_dir))
+        for i in range(start-1, finish):
+            plat_avg, plat_loc, plat_crd = plat_seeker(data.i_dat_all_ls[i])
+            n_plats = max(plat_crd)
+            print "Found", n_plats, "plateau(s)"
+            plat_start = 0
+            plat_end = 0
+            save_flag = False
+            for j in range(len(plat_avg)):
+                #TODO ADD the range to the GUI
+                if ( (plat_avg[j] > 5000.0) and (plat_avg[j] < 10000) and (plat_start == 0)): 
+                    #We've found the start of the plateau
+                    plat_num = plat_crd[j]
+                    print "Plateau number", plat_num, "is in range, with value", plat_avg[j]
+                    plat_start = j
+                if ((plat_start > 0) and (plat_crd[j] != plat_num)):
+                    #We've found the end of the plateau
+                    plat_end = j-1
+                    #Ignore others for now (in a perfect world there won't be any if the range is tight)
+                    save_flag = True
+                    break
+            if save_flag == True:
+                filename = 'psync' + str(filecounter).zfill(4) + '.txt'
+                #FIXME: Converting back from currents to voltages, only to reconvert is poor. If this works, clean it up.
+                for j in range(len(data.i_dat_all_ls[i])):
+                    data.i_dat_all_ls[i][j] = data.i_dat_all_ls[i][j] * i_ls_res / scale
+                    data.i10_dat_all_ls[i][j] = data.i10_dat_all_ls[i][j] * (i_ls_res * 10) / scale
+                    data.i_dat_all_hs[i][j] = data.i_dat_all_hs[i][j] * i_hs_res / scale
+                    data.i10_dat_all_hs[i][j] = data.i10_dat_all_hs[i][j] * (i_hs_res * 10) / scale 
+                #TODO Add the choice of start /end of plateau syncing
+                fileoutput(filename, 
+                        data.i_dat_all_ls[i][plat_start:],
+                        data.i10_dat_all_ls[i][plat_start:],
+                        data.i_dat_all_hs[i][plat_start:],
+                        data.i10_dat_all_hs[i][plat_start:],
+                        )
+                print "File saved as:", filename
+                filecounter += 1
+    finally:
+        os.chdir(original_directory)
 
 def back_correct(i_dat, bcorfac):
 
@@ -476,7 +531,7 @@ def userinput(auto_name):
 
 def autosave(auto_name, dirname):
 
-    # Save a file auto_name in a directory with no questions asked
+    # Copy a file auto_name in a directory with no questions asked
 
     targetfile = auto_name  # Local copy for recursion
     print 'Saving data...'
@@ -504,10 +559,10 @@ def fileoutput(
     data_2,
     data_3,
     data_4,
-    points,
     ):
     """Writes quad channel data to file."""
-
+    
+    points = len(data_1)
     with open(filename, 'w') as FILE:
         for i in range(0, points):
             FILE.write('%s' % data_1[i] + '\t %s' % data_2[i] + '\t %s'
@@ -641,7 +696,6 @@ def chopper(
                         data_slice2,
                         data_slice3,
                         data_slice4,
-                        points,
                         )
                     filecounter += 1
                 l_plat_len = 0
@@ -1080,6 +1134,9 @@ class controller:
         self.ScanAnalysis.menu.add_command(label='Read scans to memory'
                 , underline=0, background='grey', activebackground='red'
                 , command=self.readfiles)
+        self.ScanAnalysis.menu.add_command(label='Sync scans in memory to plateau'
+                , underline=0, background='grey', activebackground='red'
+                , command=self.plat_syncer)
         #self.ScanAnalysis.menu.add('separator')
         self.ScanAnalysis.menu.add_command(label='Export current list to file'
                 , underline=0, background='grey', activebackground='green'
@@ -1889,8 +1946,8 @@ class controller:
         plt.xlabel('current (nanoamps)', fontsize=14)
         plt.show()
 
-    def readfiles(self):
-
+    def input_range(self):
+        """Returns the start/finish numbers for the I(s) scans to read in"""
         if (len(data.filename) < 1):
             self.error = showerror('Error', 'Input folder not defined')
             return
@@ -1914,12 +1971,22 @@ class controller:
             # Use the default or user set input range
             start = int(self.stavar.get())
             finish = int(self.finvar.get())
+        return start, finish
+
+    def readfiles(self):
+        """ READ in the I(s) scans, stitch together and correct the background """
+        start, finish = self.input_range()
         bcorfac = self.bcorfac.get()
         #Clear the current lists if you don't want to combine data sets
         if controller.clear_global_data.get() == 1:
             data.clear_current_lists()
         dat_input(start, finish, bcorfac)
         print 'End of file input'
+
+    def plat_syncer(self):
+        """ Sync the I(s) scans to the start or end of a G0 plateau """
+        start, finish = self.input_range()
+        plat_sync(start, finish)
 
     def importdata(self):
         # Needs to call tea break maker
