@@ -32,7 +32,10 @@ from matplotlib.figure import Figure
 import sys
 from matplotlib.colors import LogNorm
 
+#Multithreading support
 
+import threading
+from Queue import Queue
 
 # Dialogue
 
@@ -54,7 +57,7 @@ import string
 import cPickle
 import gzip
 
-# KDE stuff
+# Plotting stuff
 
 import numpy as np
 from scipy import stats as sci_stats
@@ -65,7 +68,6 @@ from scipy import linspace, polyval, polyfit, sqrt, stats, randn
 # Retro Fortran modules -- recompile using: f2py -c -m plat_seek plat_seek8.f90 etc..
 
 import plat_seek
-
 
 class Data:
     #Initialise a load of lists / variables for global use
@@ -576,6 +578,7 @@ def chopper(
     l_th,
     u_th,
     filecounter,
+    output_dir,
     ):
     """Chops the continuous data file into individual scans."""
    
@@ -686,7 +689,7 @@ def chopper(
                     # Generate the filename
                     # Later on this can calculate a sdev and dynamically exclude
 
-                    filename = 'slice' + str(filecounter).zfill(4) \
+                    filename = os.getcwd()[:-3] + output_dir + "/" + 'slice' + str(filecounter).zfill(4) \
                         + '.txt'
                     print 'Reconstructed I(s) scan containing: ', points, \
                         'data points as: ', filename
@@ -757,71 +760,115 @@ def tea_break_maker():
 
     # Now for the chopping
     # Assumes you've put the raw data in ../raw/
-    print 'This is a good time to have tea break...'
-
     # Go into the raw data directory
     original_directory = os.getcwd()
     try:
         os.chdir(os.path.abspath('raw'))
         files = os.listdir(os.getcwd())
-        for raw_data_filename in files:
-            # Reset the file counter for the chopped scans
-            filecounter = 0
-            data = True
-            #Open the raw data file which should be gzipped 
-            with gzip.open(raw_data_filename) as gz_data:
-                # Create an output folder for the individual scans
-                dirname = raw_data_filename[0:-7]
-                output = 'chopped' + dirname[6:]
-                print 'Reconstructing I(s) scans into the directory', output, '...'
-                # Go out of the raw data folder........
-                raw_directory = os.getcwd()
-                try:
-                    os.chdir(os.pardir)
-                    # Make the output folder for the I(s) scans if it doesn't exist already and cd into it
-                    if os.path.exists(output) != True:
-                        os.mkdir(output)
-                    os.chdir(os.path.abspath(output))
-                    # Reconstruct the I(s) scans only if the the folder is empty       
-                    if os.listdir(os.getcwd()):
-                        print "Skipping scan reconstruction: target folder:", "../" + output, "is not empty"
-                        break
-                    while data == True:
-                        #Create empty current lists
-                        i_list_ls_x1 = []
-                        i_list_ls_x10 = []
-                        i_list_hs_x1 = []
-                        i_list_hs_x10 = []
-                        for i in range(controller.chunksize.get()):
-                            line = gz_data.readline()
-                            if not line:
-                                print "End of raw data: last chunk is", i," lines long."
-                                #Don't do any more while loops
-                                data = False
-                                #Leave the for loop with i lines of data        
-                                break
-                            line = line.split()
-                            #Populate the current lists
-                            i_list_ls_x1.append(float(line[0]))
-                            i_list_ls_x10.append(float(line[1]))
-                            i_list_hs_x1.append(float(line[2])) 
-                            i_list_hs_x10.append(float(line[3]))
-                        #Now reconstruct the scans, but only if there is at least one line of data in the chunk
-                        if line:
-                            filecounter = chopper(
-                                i_list_ls_x1,
-                                i_list_ls_x10,
-                                i_list_hs_x1,
-                                i_list_hs_x10,
-                                controller.scan_l_th.get(),
-                                controller.scan_u_th.get(),
-                                filecounter,
-                                )
-                finally:
-                    os.chdir(raw_directory)
+        #Start reconstruction of scans
+        print 'This is a good time to have tea break...'
+        process_files(files)
     finally:
         print 'Finished reconstructing I(s) scans'
         os.chdir(original_directory)
+
+def process_files(files):
+    def producer(q, files):
+        for filename in files:
+            thread = InitChopper(filename)
+            thread.start()
+            print "------------->   THREAD NAME ----------->", thread.getName()
+            #Put the thread in the queue, arg True blocks if necessary until a slot is available 
+            #FIXME: Waits for thread to finish -- not parallel. Rewrite chopper in C?
+            thread.join()
+            q.put(thread, True)
+
+    def consumer(q, total_files):
+        counter = 0
+        while counter < total_files:
+            #Remove and return an item from the queue, arg True blocks if necessary until item available
+            thread = q.get(True)
+            #Wait for thread to terminate
+            thread.join()
+            counter +=1
+
+    q = Queue(3)
+    prod_thread = threading.Thread(target=producer, args=(q, files))
+    cons_thread = threading.Thread(target=consumer, args=(q, len(files)))
+    prod_thread.start()
+    cons_thread.start()
+    #Wait for producer to terminate
+    prod_thread.join() 
+    cons_thread.join()
+
+
+class InitChopper(threading.Thread):
+    def __init__(self, filename):
+        self.raw_data_filename = filename
+        threading.Thread.__init__(self)
+
+    def run(self):
+        #NEED TO USE absolute paths, none of this CHDIR business
+        # Reset the file counter for the chopped scans
+        filecounter = 0
+        data = True
+        #Open the raw data file which should be gzipped 
+        with gzip.open(self.raw_data_filename) as gz_data:
+            # Create an output folder for the individual scans
+            dirname = self.raw_data_filename[0:-7]
+            output = 'chopped' + dirname[6:]
+            print 'Reconstructing I(s) scans into the directory', output, '...'
+            # Go out of the raw data folder........
+            raw_directory = os.getcwd()
+            try:
+                #TODO MAKE THREAD SAFE -- PUT A LOCK HERE
+                os.chdir(os.pardir)
+                # Make the output folder for the I(s) scans if it doesn't exist already and cd into it
+                if os.path.exists(output) != True:
+                    os.mkdir(output)
+                os.chdir(raw_directory)
+
+                #os.chdir(os.path.abspath(output))
+                # Reconstruct the I(s) scans only if the the folder is empty       
+                #if os.listdir(os.getcwd()):
+                #    print "Skipping scan reconstruction: target folder:", "../" + output, "is not empty"
+                #    return
+                #TODO REMOVE LOCK  -- change below path to abs 
+                while data == True:
+                    #Create empty current lists
+                    i_list_ls_x1 = []
+                    i_list_ls_x10 = []
+                    i_list_hs_x1 = []
+                    i_list_hs_x10 = []
+                    for i in range(controller.chunksize.get()):
+                        line = gz_data.readline()
+                        if not line:
+                            print "End of raw data: last chunk is", i," lines long."
+                            #Don't do any more while loops
+                            data = False
+                            #Leave the for loop with i lines of data        
+                            break
+                        line = line.split()
+                        #Populate the current lists
+                        i_list_ls_x1.append(float(line[0]))
+                        i_list_ls_x10.append(float(line[1]))
+                        i_list_hs_x1.append(float(line[2])) 
+                        i_list_hs_x10.append(float(line[3]))
+                    #Now reconstruct the scans, but only if there is at least one line of data in the chunk
+                    if line:
+                        filecounter = chopper(
+                            i_list_ls_x1,
+                            i_list_ls_x10,
+                            i_list_hs_x1,
+                            i_list_hs_x10,
+                            controller.scan_l_th.get(),
+                            controller.scan_u_th.get(),
+                            filecounter,
+                            output
+                            )
+            finally:
+                os.chdir(raw_directory)
+
 
 class egraph:
 
@@ -1994,7 +2041,7 @@ class controller:
 
 
 root = Tk()
-root.title('Scanmaster 3000 v0.48')
+root.title('Scanmaster 3000 v0.50')
 
 egraph = egraph(root)
 #Create a data container
