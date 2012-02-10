@@ -945,7 +945,7 @@ class egraph:
         self.ax3.plot(s_dat_ls, plat_data, 'b.-', label='Plateau fitting')
         self.ax3.grid(True)
         self.ax3.set_ylim([0, 25000])
-        self.ax3.set_xlim([0, 2])
+        self.ax3.set_xlim([0, xlim])
         self.ax3.set_xlabel('Distance (nm)')
         self.ax3.legend()
 
