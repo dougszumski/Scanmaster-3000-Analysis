@@ -532,7 +532,7 @@ def back_correct(i_dat, bcorfac):
 
 def userinput(auto_name):
 
-    # Used to generate save/ignore option atwith open(filename, 'w') as FILE: the command line for rejecting or keeping data
+    # Used to generate save/ignore option at the command line for rejecting or keeping data
     # If the user saves the data it is copied to the folder 'processed' which is created in the path of the script
 
     targetfile = auto_name  # Local copy for recursion
@@ -968,7 +968,7 @@ class egraph:
         self.ax3.plot(s_dat_ls, plat_data, 'b.-', label='Plateau fitting')
         self.ax3.grid(True)
         self.ax3.set_ylim([0, 25000])
-        self.ax3.set_xlim([0, 2])
+        self.ax3.set_xlim([0, xlim])
         self.ax3.set_xlabel('Distance (nm)')
         self.ax3.legend()
 
