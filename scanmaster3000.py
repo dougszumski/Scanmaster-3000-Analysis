@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-#     Doug S. Szumski  <d.s.szumski@gmail.com>  01-08-2011
+#     Doug S. Szumski  <d.s.szumski@gmail.com>  05-04-2012
 #     Processing and analysis script for quad channel STM module
 # 
 #     This program is free software; you can redistribute it and/or modify
@@ -215,7 +215,30 @@ def export_current_data():
                 FILE.write('%s \n' % value)
             info = showinfo('Notice', 'File saved')
 
+def export_scan_data():
+    """Exports scans stored in memory"""
 
+    if (len(data.i_dat_all_combined) < 1):
+        error = showerror('Error', 'No data in memory')
+        return
+    #Save current directory (should be at script level)
+    original_directory = os.getcwd()
+    #Make new directoy to work in:
+    working_dir = "exportedScans"
+    if os.path.exists(working_dir) != True:
+        os.mkdir(working_dir)
+    try:
+        listLen = len(data.i_dat_all_combined)
+        os.chdir(os.path.abspath(working_dir))
+        print "Saving: ", listLen, " scans"
+        for i in range(listLen):
+            with open("combined" + str(i).zfill(4) + ".txt", 'w') as FILE:
+                for value in data.i_dat_all_combined[i]:
+                    FILE.write('%s \n' % value)
+    finally:
+        os.chdir(original_directory)
+        info = showinfo('Notice', str(listLen) +' scans saved to:\n ../' + working_dir)
+     
 def plat_seeker(current_trace):
 
     # Search data in current_trace for plateaus
@@ -509,7 +532,7 @@ def back_correct(i_dat, bcorfac):
 
 def userinput(auto_name):
 
-    # Used to generate save/ignore option at the command line for rejecting or keeping data
+    # Used to generate save/ignore option atwith open(filename, 'w') as FILE: the command line for rejecting or keeping data
     # If the user saves the data it is copied to the folder 'processed' which is created in the path of the script
 
     targetfile = auto_name  # Local copy for recursion
@@ -945,7 +968,7 @@ class egraph:
         self.ax3.plot(s_dat_ls, plat_data, 'b.-', label='Plateau fitting')
         self.ax3.grid(True)
         self.ax3.set_ylim([0, 25000])
-        self.ax3.set_xlim([0, xlim])
+        self.ax3.set_xlim([0, 2])
         self.ax3.set_xlabel('Distance (nm)')
         self.ax3.legend()
 
@@ -1188,6 +1211,9 @@ class controller:
         self.ScanAnalysis.menu.add_command(label='Export current list to file'
                 , underline=0, background='grey', activebackground='green'
                 , command=export_current_data)
+        self.ScanAnalysis.menu.add_command(label='Export scans in memory to file'
+                , underline=0, background='grey', activebackground='green'
+                , command=export_scan_data)
         self.ScanAnalysis.menu.add('separator')
         self.ScanAnalysis.menu.add_checkbutton(label='Clear global data on read'
                 , underline=0, variable=self.clear_global_data)
@@ -2041,7 +2067,7 @@ class controller:
 
 
 root = Tk()
-root.title('Scanmaster 3000 v0.50')
+root.title('Scanmaster 3000 v0.51')
 
 egraph = egraph(root)
 #Create a data container
