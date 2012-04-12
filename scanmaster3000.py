@@ -199,18 +199,28 @@ def contour_plot():
 def correlationHist():
     """Plots a 2D correlation histogram as per Makk et al."""
     
-    #Histogram settings from GUI:
-    histLowerLim = controller.corrcurrentmin.get()
-    histUpperLim =  controller.corrcurrentmax.get()
+    #Histogram settings from GUI
     numBins = controller.corrbins.get()
-
+    logscale = controller.corrlogscale.get()
+    if logscale: 
+        print "Plotting 2D correlation histogram with log scale"
+        histLowerLim = controller.corrcurrentmin.get()
+        histUpperLim =  controller.corrcurrentmax.get()
+    else: 
+        print "Plotting 2D correlation histogram with linear scale"
+        histLowerLim = 10**controller.corrcurrentmin.get()
+        histUpperLim = 10**controller.corrcurrentmax.get()
     print "Loading data..."
+
     #Create a matrix containing all the scan data 
     #TODO: This is redundant and a waste of resources, convert scan container to a matrix in the data class?
     numScans = len(data.i_dat_all_combined)
     scanMatrix = np.zeros(numScans*numBins).reshape(numScans,numBins)
     for i in range(numScans):
-        hist, binEdges = np.histogram(np.log10(data.i_dat_all_combined[i]), numBins, (histLowerLim,histUpperLim))   
+        if logscale:
+            hist, binEdges = np.histogram(np.log10(data.i_dat_all_combined[i]), numBins, (histLowerLim,histUpperLim))   
+        else:
+            hist, binEdges = np.histogram(data.i_dat_all_combined[i], numBins, (histLowerLim,histUpperLim))   
         scanMatrix[i,:] = hist
 
     print "Computing 2D correlation histogram..."
@@ -279,8 +289,12 @@ def correlationHist():
     cb.set_label(r'$H_{i,j}^{corr}$', fontsize=15)
     corrPlot.contour(corrMatrix, origin='lower', extent=extent, cmap=black, vmax = 1.0, vmin = -1.0)
     corrPlot.set_aspect(1.)
-    corrPlot.set_xlabel(r'$Log_{10}[I(nA)]$', fontsize =15)
-    corrPlot.set_ylabel(r'$Log_{10}[I(nA)]$', fontsize =15)
+    if logscale:
+        corrPlot.set_xlabel(r'$Log_{10}[I(nA)]$', fontsize =15)
+        corrPlot.set_ylabel(r'$Log_{10}[I(nA)]$', fontsize =15)
+    else:
+        corrPlot.set_xlabel(r'$I(nA)$', fontsize =15)
+        corrPlot.set_ylabel(r'$I(nA)$', fontsize =15)
     corrPlot.grid(True, color='w', linestyle='-', which='major', linewidth=1)
 
     #Plot the histograms on the side
@@ -1143,6 +1157,7 @@ class controller:
         self.corrcurrentmin = DoubleVar()
         self.corrcurrentmax = DoubleVar()
         self.corrbins = IntVar()
+        self.corrlogscale = IntVar()
 
         # Plateau fitting parameters
         self.plat_max_grad = DoubleVar()
@@ -1214,6 +1229,7 @@ class controller:
             self.corrcurrentmin.set(-1.0)
             self.corrcurrentmax.set(4.0)
             self.corrbins.set(300)
+            self.corrlogscale.set(1)
 
             # Plateau fitting parameters
             self.plat_max_grad.set(50000.0)
@@ -1268,6 +1284,7 @@ class controller:
             self.corrcurrentmin.set(data[ 'corrcurrentmin'])
             self.corrcurrentmax.set(data[ 'corrcurrentmax'])
             self.corrbins.set(data[ 'corrbins'])
+            self.corrlogscale.set(data[ 'corrlogscale'])
             self.plat_max_grad.set(data[ 'plat_max_grad'])  
             self.background_tol.set(data[ 'background_tol'])  
             self.max_plat_cur.set(data[ 'max_plat_cur'])  
@@ -1281,12 +1298,10 @@ class controller:
             self.min_seg_len.set(data[ 'min_seg_len'])  
 
         # Menu bar at the top of the main window
-
         self.mBar = Frame(myParent, relief=RAISED, borderwidth=2)
         self.mBar.pack(fill=X)
 
         # File menu
-
         self.FileMenu = Menubutton(self.mBar, text='File', underline=0)
         self.FileMenu.pack(side=LEFT, padx='2m')
         self.FileMenu.menu = Menu(self.FileMenu)
@@ -1298,7 +1313,6 @@ class controller:
         self.FileMenu['menu'] = self.FileMenu.menu
 
         # Plot menu -- everything related to plotting graphs
-
         self.PlotMenu = Menubutton(self.mBar, text='Plot', underline=0)
         self.PlotMenu.pack(side=LEFT, padx='2m')
         self.PlotMenu.menu = Menu(self.PlotMenu)
@@ -1313,7 +1327,6 @@ class controller:
         self.PlotMenu['menu'] = self.PlotMenu.menu
 
         # Scan analysis menu -- everything related to reading in and filtering individual I(s) scans
-
         self.ScanAnalysis = Menubutton(self.mBar, text='Scan analysis',
                 underline=0)
         self.ScanAnalysis.pack(side=LEFT, padx='2m')
@@ -1350,7 +1363,6 @@ class controller:
         self.ScanAnalysis['menu'] = self.ScanAnalysis.menu
 
         # Data menu -- everything related to data input
-
         self.ImportData = Menubutton(self.mBar, text='Process raw data',
                 underline=0)
         self.ImportData.pack(side=LEFT, padx='2m')
@@ -1366,7 +1378,6 @@ class controller:
         self.ImportData['menu'] = self.ImportData.menu
 
         # Settings menu -- lots of variables to play with
-
         self.SettingsMenu = Menubutton(self.mBar, text='Settings',
                 underline=0)
         self.SettingsMenu.pack(side=LEFT, padx='2m')
@@ -1430,6 +1441,7 @@ class controller:
                 'corrcurrentmin' : self.corrcurrentmin.get(),
                 'corrcurrentmax' : self.corrcurrentmax.get(),
                 'corrbins' : self.corrbins.get(),
+                'corrlogscale' : self.corrlogscale.get(),
                 'plat_max_grad' : self.plat_max_grad.get(),
                 'background_tol' : self.background_tol.get(),
                 'max_plat_cur' : self.max_plat_cur.get(),
@@ -1448,14 +1460,12 @@ class controller:
             print 'Settings saved'
 
     def restoreData(self):
-
         # Return an unpickled dictionary with stored variables 
         with open("settings", 'r') as settingsfile:
             data = cPickle.load(settingsfile)
             return data
  
     def filename_browse(self):
-
         # Browse to select filename
         data.filename = askopenfilename(title='Select I(s) scan...',
                 filetypes=[('Text files', '*.txt'), ('Gzipped files', '*.gz'), ('All files', '*')])
@@ -1466,9 +1476,7 @@ class controller:
             quit(self)
 
     def recon_scan_info(self):
-
         # Displays the nfo.txt for the dataset
-
         #TODO: There is a minor bug here, in that the program only looks in the current directory for nfo.txt
         # If you're analysing data in a different folder to location of scanmaster it won't find the file. 
         if os.access('nfo.txt', os.F_OK):
@@ -1502,7 +1510,7 @@ class controller:
 
         # Draw the controls; see the text for what they do
         Label(self.chopper_frame, text='Minimum segment length (points)').grid(row=0,
-                column=0)
+                column=0, sticky=W)
         self.minseglength = Spinbox(
             self.chopper_frame,
             from_=1,
@@ -1516,7 +1524,7 @@ class controller:
         self.minseglength.grid(row=0, column=1)
 
         Label(self.chopper_frame, text='Maximum segment length (points)').grid(row=1,
-                column=0)
+                column=0, sticky=W)
         self.maxseglength = Spinbox(
             self.chopper_frame,
             from_=1,
@@ -1530,7 +1538,7 @@ class controller:
         self.maxseglength.grid(row=1, column=1)
 
         Label(self.chopper_frame, text='Scan level upper threshold (V)').grid(row=2,
-                column=0)
+                column=0, sticky=W)
         self.u_th = Spinbox(
             self.chopper_frame,
             from_=-10.0,
@@ -1544,7 +1552,7 @@ class controller:
         self.u_th.grid(row=2, column=1)
 
         Label(self.chopper_frame, text='Scan level lower threshold (V)').grid(row=3,
-                column=0)
+                column=0, sticky=W)
         self.l_th = Spinbox(
             self.chopper_frame,
             from_=-10.0,
@@ -1558,7 +1566,7 @@ class controller:
         self.l_th.grid(row=3, column=1)
 
         Label(self.chopper_frame, text='Raw data chunk input size').grid(row=4,
-                column=0)
+                column=0, sticky=W)
         self.l_th = Spinbox(
             self.chopper_frame,
             from_=0,
@@ -1586,7 +1594,7 @@ class controller:
 
         # Feedback resistor settings
         Label(self.resistance_frame, text='Feedback resistance (L):'
-              ).grid(row=0, column=0)
+              ).grid(row=0, column=0, sticky=W)
 
         Spinbox(
             self.resistance_frame,
@@ -1600,7 +1608,7 @@ class controller:
             ).grid(row=0, column=1)
 
         Label(self.resistance_frame, text='Feedback resistance (H):'
-              ).grid(row=1, column=0)
+              ).grid(row=1, column=0, sticky=W)
 
         Spinbox(
             self.resistance_frame,
@@ -1615,10 +1623,10 @@ class controller:
 
         # Cutoff voltage settings for channel switchover
         Label(self.cutoff_frame, text='Cutoff voltages (V)'
-              ).grid(row=0, column=0)
+              ).grid(row=0, column=0, sticky=W)
 
         Label(self.cutoff_frame, text='Channel 1:').grid(row=1,
-                column=0)
+                column=0, sticky=W)
 
         Spinbox(
             self.cutoff_frame,
@@ -1632,7 +1640,7 @@ class controller:
             ).grid(row=1, column=1)
 
         Label(self.cutoff_frame, text='Channel 2:').grid(row=2,
-                column=0)
+                column=0, sticky=W)
 
         Spinbox(
             self.cutoff_frame,
@@ -1646,7 +1654,7 @@ class controller:
             ).grid(row=2, column=1)
 
         Label(self.cutoff_frame, text='Channel 3:').grid(row=3,
-                column=0)
+                column=0, sticky=W)
 
         Spinbox(
             self.cutoff_frame,
@@ -1721,7 +1729,7 @@ class controller:
 
         # Draw the controls; see the text for what they do
         Label(self.data_frame, text='Cumulative log(I) threshold:'
-              ).grid(row=0, column=0)
+              ).grid(row=0, column=0, sticky=W)
         self.start = Spinbox(
             self.data_frame,
             from_=-10000,
@@ -1746,7 +1754,7 @@ class controller:
 
         # Draw the controls; see the text for what they do
         Label(self.data_frame, text='Manual file input range start:'
-              ).grid(row=0, column=0)
+              ).grid(row=0, column=0, sticky=W)
         self.start = Spinbox(
             self.data_frame,
             from_=1,
@@ -1760,7 +1768,7 @@ class controller:
         self.start.grid(row=0, column=1)
 
         Label(self.data_frame, text='Manual file input range finish:'
-              ).grid(row=1, column=0)
+              ).grid(row=1, column=0, sticky=W)
         self.finish = Spinbox(
             self.data_frame,
             from_=1,
@@ -1774,7 +1782,7 @@ class controller:
         self.finish.grid(row=1, column=1)
 
         Label(self.data_frame, text='Background correction factor:'
-              ).grid(row=2, column=0)
+              ).grid(row=2, column=0, sticky=W)
         self.bcorfactor = Spinbox(
             self.data_frame,
             from_=0.05,
@@ -1788,7 +1796,7 @@ class controller:
         self.bcorfactor.grid(row=2, column=1)
 
         Label(self.data_frame, text='Scan distance cutoff (nm):'
-              ).grid(row=3, column=0)
+              ).grid(row=3, column=0, sticky=W)
         self.xfactor = Spinbox(
             self.data_frame,
             from_=0.1,
@@ -1802,7 +1810,7 @@ class controller:
         self.xfactor.grid(row=3, column=1)
 
         Label(self.data_frame, text='Current offset for OTF plot (nA):'
-              ).grid(row=4, column=0)
+              ).grid(row=4, column=0, sticky=W)
         self.goffset = Spinbox(
             self.data_frame,
             from_=0.0,
@@ -1827,7 +1835,7 @@ class controller:
 
         # Draw the controls; see the text for what they do
         Label(self.adc_frame, text='Samples per second:').grid(row=0,
-                column=0)
+                column=0, sticky=W)
         self.sampsecond = Spinbox(
             self.adc_frame,
             from_=1,
@@ -1841,7 +1849,7 @@ class controller:
         self.sampsecond.grid(row=0, column=1)
 
         Label(self.adc_frame, text='Scan range (nm):').grid(row=1,
-                column=0)
+                column=0, sticky=W)
         self.scanrange = Spinbox(
             self.adc_frame,
             from_=0.1,
@@ -1855,7 +1863,7 @@ class controller:
         self.scanrange.grid(row=1, column=1)
 
         Label(self.adc_frame, text='Sweep duration (s):').grid(row=2,
-                column=0)
+                column=0, sticky=W)
         self.scanduration = Spinbox(
             self.adc_frame,
             from_=0.1,
@@ -1880,7 +1888,7 @@ class controller:
 
         # Draw the controls; see the text for what they do
         Label(self.contour_frame, text='x-axis minimum:').grid(row=0,
-                column=0)
+                column=0, sticky=W)
         self.xmin = Spinbox(
             self.contour_frame,
             from_=-100000,
@@ -1894,7 +1902,7 @@ class controller:
         self.xmin.grid(row=0, column=1)
 
         Label(self.contour_frame, text='x-axis maximum:').grid(row=1,
-                column=0)
+                column=0, sticky=W)
         self.xmax = Spinbox(
             self.contour_frame,
             from_=0,
@@ -1908,7 +1916,7 @@ class controller:
         self.xmax.grid(row=1, column=1)
 
         Label(self.contour_frame, text='y-axis minimum:').grid(row=2,
-                column=0)
+                column=0, sticky=W)
         self.ymin = Spinbox(
             self.contour_frame,
             from_=-10,
@@ -1922,7 +1930,7 @@ class controller:
         self.ymin.grid(row=2, column=1)
 
         Label(self.contour_frame, text='y-axis maximum:').grid(row=3,
-                column=0)
+                column=0, sticky=W)
         self.ymax = Spinbox(
             self.contour_frame,
             from_=-10,
@@ -1936,7 +1944,7 @@ class controller:
         self.ymax.grid(row=3, column=1)
 
         Label(self.contour_frame, text='x bin count:').grid(row=4,
-                column=0)
+                column=0, sticky=W)
         self.xbin = Spinbox(
             self.contour_frame,
             from_=0,
@@ -1950,7 +1958,7 @@ class controller:
         self.xbin.grid(row=4, column=1)
 
         Label(self.contour_frame, text='y bin count:').grid(row=5,
-                column=0)
+                column=0, sticky=W)
         self.ybin = Spinbox(
             self.contour_frame,
             from_=0,
@@ -1975,7 +1983,7 @@ class controller:
 
         # Draw the controls; see the text for what they do
         Label(self.correlation_frame, text='Current minimum [Log10(nA)] :').grid(row=0,
-                column=0)
+                column=0, sticky=W)
         self.currentmin = Spinbox(
             self.correlation_frame,
             from_=--10,
@@ -1989,7 +1997,7 @@ class controller:
         self.currentmin.grid(row=0, column=1)
 
         Label(self.correlation_frame, text='Current maximum [Log10(nA)] :').grid(row=1,
-                column=0)
+                column=0, sticky=W)
         self.currentmax = Spinbox(
             self.correlation_frame,
             from_=-10,
@@ -2003,7 +2011,7 @@ class controller:
         self.currentmax.grid(row=1, column=1)
 
         Label(self.correlation_frame, text='Number of bins:').grid(row=2,
-                column=0)
+                column=0, sticky=W)
         self.corrnumbins = Spinbox(
             self.correlation_frame,
             from_=10,
@@ -2015,6 +2023,11 @@ class controller:
             textvariable=self.corrbins,
             )
         self.corrnumbins.grid(row=2, column=1)
+
+        Label(self.correlation_frame, text='Use log scale:').grid(row=3,
+                column=0, sticky=W)
+        self.logscale = Checkbutton(self.correlation_frame, variable=self.corrlogscale)
+        self.logscale.grid(row=3, column=1)
 
     def plateau_fitting_params(self):
 
@@ -2029,7 +2042,7 @@ class controller:
         # Draw the controls; see the text for what they do
         Label(self.plateau_fitting_frame,
               text='Minimum data points per plateau:').grid(row=0,
-                column=0)
+                column=0, sticky=W)
         self.xmin = Spinbox(
             self.plateau_fitting_frame,
             from_=6,
@@ -2044,7 +2057,7 @@ class controller:
 
         Label(self.plateau_fitting_frame,
               text='Maximum data points per plateau:').grid(row=1,
-                column=0)
+                column=0, sticky=W)
         self.xmax = Spinbox(
             self.plateau_fitting_frame,
             from_=10,
@@ -2059,7 +2072,7 @@ class controller:
 
         Label(self.plateau_fitting_frame,
               text='Background tolerence level (standard deviations)'
-              ).grid(row=2, column=0)
+              ).grid(row=2, column=0, sticky=W)
         self.ymin = Spinbox(
             self.plateau_fitting_frame,
             from_=0,
@@ -2074,7 +2087,7 @@ class controller:
 
         Label(self.plateau_fitting_frame,
               text='Maximum plateau gradient (A/m):').grid(row=3,
-                column=0)
+                column=0, sticky=W)
         self.ymax = Spinbox(
             self.plateau_fitting_frame,
             from_=-1000000,
@@ -2089,7 +2102,7 @@ class controller:
 
         Label(self.plateau_fitting_frame,
               text='Maximum plateau current (nA):').grid(row=4,
-                column=0)
+                column=0, sticky=W)
         self.xbin = Spinbox(
             self.plateau_fitting_frame,
             from_=0,
@@ -2104,7 +2117,7 @@ class controller:
 
         Label(self.plateau_fitting_frame,
               text='Maximum plateau deviation from the average:'
-              ).grid(row=5, column=0)
+              ).grid(row=5, column=0, sticky=W)
         self.ybin = Spinbox(
             self.plateau_fitting_frame,
             from_=0.00,
