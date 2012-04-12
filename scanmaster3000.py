@@ -65,6 +65,11 @@ import matplotlib.pylab as plt
 import statistics
 from scipy import linspace, polyval, polyfit, sqrt, stats, randn
 
+#2D corr stuff, FIXME: is some of this pylab stuff redundant?
+from pylab import imshow, plt, contour, xlabel, ylabel, title, figure, barh, bar
+from matplotlib.colors import LinearSegmentedColormap
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
 # Retro Fortran modules -- recompile using: f2py -c -m plat_seek plat_seek8.f90 etc..
 
 import plat_seek
@@ -169,8 +174,6 @@ def contour_plot():
         error = showerror('Error', 'No data in memory')
         return
 
-  
-
     # Plot the 2D histogram
     (H, xedges, yedges) = np.histogram2d(i_list, s_list,
             bins=(controller.ybin_contour.get(),
@@ -190,6 +193,114 @@ def contour_plot():
     plt.title('I(s) scan 2D histogram')
     plt.xlabel('Distance (nm)')
     plt.ylabel('log_10[current (nA)]')
+    plt.show()
+
+
+def correlationHist():
+    """Plots a 2D correlation histogram as per Makk et al."""
+    
+    #Histogram settings from GUI:
+    histLowerLim = controller.corrcurrentmin.get()
+    histUpperLim =  controller.corrcurrentmax.get()
+    numBins = controller.corrbins.get()
+
+    print "Loading data..."
+    #Create a matrix containing all the scan data 
+    #TODO: This is redundant and a waste of resources, convert scan container to a matrix in the data class?
+    numScans = len(data.i_dat_all_combined)
+    scanMatrix = np.zeros(numScans*numBins).reshape(numScans,numBins)
+    for i in range(numScans):
+        hist, binEdges = np.histogram(np.log10(data.i_dat_all_combined[i]), numBins, (histLowerLim,histUpperLim))   
+        scanMatrix[i,:] = hist
+
+    print "Computing 2D correlation histogram..."
+    #Scan histogram
+    scanHist = np.zeros(numBins)
+    #Sum the scans together
+    for i in range(numScans):
+        scanHist += scanMatrix[i,:]
+    #Normalise
+    scanHist /= numScans
+
+    #Cross product matrix: Product of individual scans averaged over all scans
+    cpMatrix = np.zeros(numBins*numBins).reshape(numBins,numBins)
+    for i in range(numScans):
+        cpMatrix += scanMatrix[i,:] * scanMatrix[i,:].reshape(numBins,1)
+    cpMatrix /= numScans
+
+    #Covarience matrix (normalised by default)
+    covMatrix = cpMatrix[:] - scanHist[:] * scanHist[:].reshape(numBins,1)
+
+    #Correlation matrix
+    devMeanVal = np.zeros(numBins) 
+    for i in range(numScans):
+        devMeanVal += (scanMatrix[i,:] - scanHist[:])**2
+    normFactor = ( devMeanVal[:] * devMeanVal[:].reshape(numBins,1) )**0.5 
+    #Normalise the normalisation factor!
+    normFactor /= numScans
+    corrMatrix = covMatrix / normFactor
+
+    #Colour map to match ACSNANO paper:
+    acsnanoMap = {'red':   ((0.0, 0.0, 0.0),
+                            (0.52, 0.0, 1.0),
+                            (1.0, 1.0, 1.0)),
+
+                 'green':  ((0.0, 0.0, 0.0),
+                            (0.48, 0.0, 0.5),
+                            (0.50, 0.5, 0.0),
+                            (0.50, 0.0, 0.5),
+                            (0.52, 0.5, 0.0),
+                            (0.52, 0.0, 1.0),
+                            (1.0, 0.0, 0.0)),
+
+                 'blue':   ((0.0, 0.0, 0.0), 
+                            (0.48, 1.0, 0.0),
+                            (1.0, 0.0, 0.0)) 
+                }
+    blackMap =   {'red':   ((0.0, 0.0, 0.0),
+                            (1.0, 0.0, 0.0)),
+
+                 'green':  ((0.0, 0.0, 0.0),
+                            (1.0, 0.0, 0.0)),
+
+                 'blue':   ((0.0, 0.0, 0.0), 
+                            (1.0, 0.0, 0.0)) 
+                }
+    acsnano = LinearSegmentedColormap('acsNanoMap', acsnanoMap)
+    black = LinearSegmentedColormap('blackMap', blackMap)
+
+    #Plot the correlation matrix
+    print "Plotting 2D correlation histogram..."
+    fig = plt.figure(1, figsize=(10.0,10.0))
+    corrPlot = plt.subplot(111)
+    extent = [histLowerLim,histUpperLim,histLowerLim,histUpperLim] 
+    cax = corrPlot.imshow(corrMatrix, origin='lower', extent=extent, cmap=acsnano, vmax = 1.0, vmin = -1.0, interpolation='nearest')
+    cb = plt.colorbar(cax, shrink=0.75)
+    cb.set_label(r'$H_{i,j}^{corr}$', fontsize=15)
+    corrPlot.contour(corrMatrix, origin='lower', extent=extent, cmap=black, vmax = 1.0, vmin = -1.0)
+    corrPlot.set_aspect(1.)
+    corrPlot.set_xlabel(r'$Log_{10}[I(nA)]$', fontsize =15)
+    corrPlot.set_ylabel(r'$Log_{10}[I(nA)]$', fontsize =15)
+    corrPlot.grid(True, color='w', linestyle='-', which='major', linewidth=1)
+
+    #Plot the histograms on the side
+    divider = make_axes_locatable(corrPlot)
+    axHisty = divider.append_axes('right', 1.5, pad=0.1)
+    plt.setp(axHisty.get_yticklabels(), visible=False)
+    plt.setp(axHisty.get_xticklabels(), visible=False)
+    #The data is already binned so just plot the bars
+    for i in range(len(scanHist)):
+        axHisty = barh(i, scanHist[i], 1)
+
+    #Plot the histogram on the top
+    axHistx = divider.append_axes('top', 1.5, pad=0.1) 
+    plt.setp(axHistx.get_yticklabels(), visible=False)
+    plt.setp(axHistx.get_xticklabels(), visible=False)
+    #The data is already binned so just plot the bars
+    for i in range(len(scanHist)):
+        axHistx = bar(i, scanHist[i], 1)
+
+    plt.draw()
     plt.show()
 
 def export_current_data():
@@ -385,10 +496,8 @@ def dat_input(start, finish, bcorfac):
         data.i_dat_all_combined.append(i_dat_combined)
 
         # Fit a linear regression line to data for autofiltering and plotting if required
-    
         #TODO: Each of these tests saves the files in a folder, but if the folder already contains files 
         # They either must be deleted or not saved at all to avoid 'contamination'
-
         if controller.autocheck_linfit.get():
             data.i_dat_filtered = []
             data.s_dat_filtered = []
@@ -401,17 +510,13 @@ def dat_input(start, finish, bcorfac):
                                data.i_dat_filtered, 1)
             xr = polyval([ar, br], data.s_dat_filtered)
             data.polyfit_rescaled = []
-
             # A new low in the art of bodgery, because we're plotting on a log scale take the inverse log first!
             # TODO: Improve efficiency by getting rid of this bodge
-
             for value in xr:
                 data.polyfit_rescaled.append(10 ** value)
             data.err = sqrt(sum((xr - data.i_dat_filtered) ** 2)
                             / len(data.i_dat_filtered))
-
             # Save the data if MSE less than a certain amount, put this in the GUI if it works...
-
             if data.err < 0.4:
                 print 'PASSED: polyfit test', data.err
                 autosave(auto_name, savedir + '_fil_linfit')
@@ -427,9 +532,7 @@ def dat_input(start, finish, bcorfac):
                 print 'FAILED: average log(I) check with value:', avgcur
 
         if controller.autocheck_pltfit.get():
-
             # Have a look for some plateaus to highlight; you never know, there might actually be some!
-
             (plat_avg, plat_loc, plat_crd) = plat_seeker(i_dat_ls)
             if plat_loc:
                 print 'PASSED: plateaus were found'
@@ -438,9 +541,7 @@ def dat_input(start, finish, bcorfac):
                 print 'FAILED: no plateaus found'
 
         # Plot/check if set in the GUI
-
         if controller.plot_dat.get() > 0:
-
             # If we haven't already looked for plateaus then we better go do it now so we can plot them on the graph
             if controller.autocheck_pltfit.get() == False:
                 plat_avg, plat_loc, plat_crd = plat_seeker(i_dat_ls)
@@ -1038,6 +1139,11 @@ class controller:
         self.xbin_contour = IntVar()
         self.ybin_contour = IntVar()
 
+        #2D Correlation plot parameters
+        self.corrcurrentmin = DoubleVar()
+        self.corrcurrentmax = DoubleVar()
+        self.corrbins = IntVar()
+
         # Plateau fitting parameters
         self.plat_max_grad = DoubleVar()
         self.background_tol = IntVar()
@@ -1104,10 +1210,16 @@ class controller:
             self.xbin_contour.set(100)
             self.ybin_contour.set(100)
 
+            # 2D Correlation plot parameter defaults
+            self.corrcurrentmin.set(-1.0)
+            self.corrcurrentmax.set(4.0)
+            self.corrbins.set(300)
+
             # Plateau fitting parameters
             self.plat_max_grad.set(50000.0)
             self.background_tol.set(5)
             self.max_plat_cur.set(10000.0)
+            self.max_points_plat.set(100)
             self.max_points_plat.set(100)
             self.fractional_plat_tol.set(0.20)
             self.min_points_plat.set(30)
@@ -1153,6 +1265,9 @@ class controller:
             self.ymax_contour.set(data[ 'ymax_contour'])  
             self.xbin_contour.set(data[ 'xbin_contour'])  
             self.ybin_contour.set(data[ 'ybin_contour'])  
+            self.corrcurrentmin.set(data[ 'corrcurrentmin'])
+            self.corrcurrentmax.set(data[ 'corrcurrentmax'])
+            self.corrbins.set(data[ 'corrbins'])
             self.plat_max_grad.set(data[ 'plat_max_grad'])  
             self.background_tol.set(data[ 'background_tol'])  
             self.max_plat_cur.set(data[ 'max_plat_cur'])  
@@ -1191,8 +1306,10 @@ class controller:
                 , underline=0, command=self.kde_plot)
         self.PlotMenu.menu.add_command(label='Linear current histogram'
                 , underline=1, command=self.linear_data_plot)
-        self.PlotMenu.menu.add_command(label='Current-distance 2D histogram'
+        self.PlotMenu.menu.add_command(label='2D current-distance histogram'
                 , underline=1, command=contour_plot)
+        self.PlotMenu.menu.add_command(label='2D correlation histogram'
+                , underline=1, command=correlationHist)
         self.PlotMenu['menu'] = self.PlotMenu.menu
 
         # Scan analysis menu -- everything related to reading in and filtering individual I(s) scans
@@ -1262,6 +1379,8 @@ class controller:
                 , underline=0, command=self.adc_params)
         self.SettingsMenu.menu.add_command(label='2D histogram plotting'
                 , underline=0, command=self.contour_params)
+        self.SettingsMenu.menu.add_command(label='2D correlation histogram'
+                , underline=0, command=self.correlation_params)
         self.SettingsMenu.menu.add_command(label='KDE plotting',
                 underline=0, command=self.kde_params)
         self.SettingsMenu.menu.add_command(label='Quad channel module calibration'
@@ -1308,6 +1427,9 @@ class controller:
                 'ymax_contour' : self.ymax_contour.get(),
                 'xbin_contour' : self.xbin_contour.get(),
                 'ybin_contour' : self.ybin_contour.get(),
+                'corrcurrentmin' : self.corrcurrentmin.get(),
+                'corrcurrentmax' : self.corrcurrentmax.get(),
+                'corrbins' : self.corrbins.get(),
                 'plat_max_grad' : self.plat_max_grad.get(),
                 'background_tol' : self.background_tol.get(),
                 'max_plat_cur' : self.max_plat_cur.get(),
@@ -1365,7 +1487,6 @@ class controller:
                     self.text.insert(number, line)
                     number += 1.0
         else:
-
             #Display an error if file isn't there
             self.error = showerror('Error', 'nfo.txt not found')
 
@@ -1450,7 +1571,6 @@ class controller:
             )
         self.l_th.grid(row=4, column=1)
 
-       
 
     def quadchannel_params(self):
 
@@ -1843,6 +1963,59 @@ class controller:
             )
         self.ybin.grid(row=5, column=1)
 
+    def correlation_params(self):
+
+        # Configure the contour parameters
+        self.correlation_params = Toplevel()
+        self.correlation_params.title('2D correlation histogram parameters')
+
+        # Put the parameters in a frame
+        self.correlation_frame = Frame(self.correlation_params)
+        self.correlation_frame.pack(side=TOP, padx=50, pady=5)
+
+        # Draw the controls; see the text for what they do
+        Label(self.correlation_frame, text='Current minimum [Log10(nA)] :').grid(row=0,
+                column=0)
+        self.currentmin = Spinbox(
+            self.correlation_frame,
+            from_=--10,
+            to=10,
+            increment=0.01,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.corrcurrentmin,
+            )
+        self.currentmin.grid(row=0, column=1)
+
+        Label(self.correlation_frame, text='Current maximum [Log10(nA)] :').grid(row=1,
+                column=0)
+        self.currentmax = Spinbox(
+            self.correlation_frame,
+            from_=-10,
+            to=10,
+            increment=0.01,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.corrcurrentmax,
+            )
+        self.currentmax.grid(row=1, column=1)
+
+        Label(self.correlation_frame, text='Number of bins:').grid(row=2,
+                column=0)
+        self.corrnumbins = Spinbox(
+            self.correlation_frame,
+            from_=10,
+            to=1000,
+            increment=1,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.corrbins,
+            )
+        self.corrnumbins.grid(row=2, column=1)
+
     def plateau_fitting_params(self):
 
         # Configure the contour parameters
@@ -2067,10 +2240,10 @@ class controller:
 
 
 root = Tk()
-root.title('Scanmaster 3000 v0.51')
+root.title('Scanmaster 3000 v0.52')
 
 egraph = egraph(root)
-#Create a data container
+#Create the data container
 data = Data()
 controller = controller(root)
 root.mainloop()
