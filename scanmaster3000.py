@@ -424,6 +424,7 @@ def dat_input(start, finish, bcorfac):
         th_1 = controller.th_1.get()
         th_2 = controller.th_2.get()
         th_3 = controller.th_3.get() 
+        gainfactor = controller.gainfactor.get()
         #Now have a look at the background levels on the HS channels to see if they've saturated
         end = len(i_dat_hs)
         final_int = int(end * bcorfac)
@@ -463,20 +464,20 @@ def dat_input(start, finish, bcorfac):
                     #Output below threshold so try and replace it with a higher sensitivity measurement
                     if (abs(i10_dat_ls[i]) > th_2):
                         #LSx10 channel is still in operation so use the measurment from there
-                        i_dat_combined[i] = i10_dat_ls[i] / (i_ls_res * 10) * scale
+                        i_dat_combined[i] = i10_dat_ls[i] / (i_ls_res * gainfactor) * scale
                     elif ((abs(i_dat_hs[i]) > th_3) and not sat_flag_hs1):
                         #Limiter is off, HSx1 channel is in operation
                         i_dat_combined[i] = i_dat_hs[i] / i_hs_res * scale
                     elif not sat_flag_hs10:
                         #If HSx1 is below threshold then use the HSx10 channel regardless
-                        i_dat_combined[i] = i10_dat_hs[i] / (i_hs_res * 10) * scale  
+                        i_dat_combined[i] = i10_dat_hs[i] / (i_hs_res * gainfactor) * scale  
                     elif not sat_flag_hs1:
                         #If the above fails because HSx10 is saturated fall back to HSx1 as that's the best we have
                         i_dat_combined[i] = i_dat_hs[i] / i_hs_res * scale
                     else:
                         #If both HSx1 and HSx10 channels are saturated then use LSx10
                         #NOTE: In this case the measurement is probably useless for anything but a break junction
-                        i_dat_combined[i] = i10_dat_ls[i] / (i_ls_res * 10) * scale  
+                        i_dat_combined[i] = i10_dat_ls[i] / (i_ls_res * gainfactor) * scale  
                 else:
                     #LSx1 channel is fine so convert to current
                     i_dat_combined[i] = i_dat_combined[i] / (i_ls_res) * scale
@@ -486,11 +487,11 @@ def dat_input(start, finish, bcorfac):
         #This isn't required really, but its nice to have on the graph plots for fine tuning
         for i in range(len(i_dat_ls)):
                 i_dat_ls[i] = i_dat_ls[i] / i_ls_res * scale
-                i10_dat_ls[i] = i10_dat_ls[i] / (i_ls_res * 10) * scale
+                i10_dat_ls[i] = i10_dat_ls[i] / (i_ls_res * gainfactor) * scale
                 #TODO (low priority) If these are saturated they will appear as almost flat lines on the plot
                 #Notify the plotter not to plot them to avoid confusion?
                 if not sat_flag_hs1: i_dat_hs[i] = i_dat_hs[i] / i_hs_res * scale
-                if not sat_flag_hs10: i10_dat_hs[i] = i10_dat_hs[i] / (i_hs_res * 10) * scale 
+                if not sat_flag_hs10: i10_dat_hs[i] = i10_dat_hs[i] / (i_hs_res * gainfactor) * scale 
         
         #Correct the background: this is the important one
         i_dat_combined = back_correct(i_dat_combined, bcorfac)
@@ -579,6 +580,7 @@ def plat_sync(start, finish):
     #Other options are: call plat_sync from dat input, create copy of voltage arrays etc..    
     i_ls_res = int(controller.lowres.get())
     i_hs_res = int(controller.highres.get())
+    gainfactor = controller.gainfactor.get()
     scale = 1e9  # convert to nanoamps
     #Save current directory (should be at script level)
     original_directory = os.getcwd()
@@ -613,9 +615,9 @@ def plat_sync(start, finish):
                 #FIXME: Converting back from currents to voltages, only to reconvert is poor. If this works, clean it up.
                 for j in range(len(data.i_dat_all_ls[i])):
                     data.i_dat_all_ls[i][j] = data.i_dat_all_ls[i][j] * i_ls_res / scale
-                    data.i10_dat_all_ls[i][j] = data.i10_dat_all_ls[i][j] * (i_ls_res * 10) / scale
+                    data.i10_dat_all_ls[i][j] = data.i10_dat_all_ls[i][j] * (i_ls_res * gainfactor) / scale
                     data.i_dat_all_hs[i][j] = data.i_dat_all_hs[i][j] * i_hs_res / scale
-                    data.i10_dat_all_hs[i][j] = data.i10_dat_all_hs[i][j] * (i_hs_res * 10) / scale 
+                    data.i10_dat_all_hs[i][j] = data.i10_dat_all_hs[i][j] * (i_hs_res * gainfactor) / scale 
                 #TODO Add the choice of start /end of plateau syncing
                 fileoutput(filename, 
                         data.i_dat_all_ls[i][plat_start:],
@@ -646,10 +648,8 @@ def back_correct(i_dat, bcorfac):
 
 
 def userinput(auto_name):
-
     # Used to generate save/ignore option at the command line for rejecting or keeping data
     # If the user saves the data it is copied to the folder 'processed' which is created in the path of the script
-
     targetfile = auto_name  # Local copy for recursion
     var = raw_input('Save(s)/Ignore(d)? : ')
     if var == 's':
@@ -670,9 +670,7 @@ def userinput(auto_name):
 
 
 def autosave(auto_name, dirname):
-
     # Copy a file auto_name in a directory with no questions asked
-
     targetfile = auto_name  # Local copy for recursion
     print 'Saving data...'
     data.file_newnum += 1
@@ -684,14 +682,12 @@ def autosave(auto_name, dirname):
     shutil.copy(targetfile, pathvar + new_name)  # Copy file to pathvar
 
 def groupavg(data):
-
     # Returns the average value of a string of data points
     tmp = 0.00
     for value in data:
         tmp += value
     tmp /= len(data)
     return tmp
-
 
 def fileoutput(
     filename,
@@ -879,7 +875,6 @@ def tea_break_maker():
         error = showerror('Disaster', 'No data found in ../raw')
         return
     info = showinfo('Scan reconstructor', 'Refer to the terminal')
-
     answers = []
    
     # Now ask the questions
@@ -938,7 +933,6 @@ def process_files(files):
     #Wait for producer to terminate
     prod_thread.join() 
     cons_thread.join()
-
 
 class InitChopper(threading.Thread):
     def __init__(self, filename):
@@ -1006,7 +1000,6 @@ class InitChopper(threading.Thread):
                             )
             finally:
                 os.chdir(raw_directory)
-
 
 class egraph:
 
@@ -1134,6 +1127,7 @@ class controller:
          # Resistor division
         self.lowres = DoubleVar()
         self.highres = DoubleVar()
+        self.gainfactor = DoubleVar()
 
         # Stitch volages
         self.th_1 = DoubleVar()
@@ -1188,6 +1182,7 @@ class controller:
             # Resistor defaults
             self.lowres.set(10000)  # Calibrate from resistor measurements, assumes output voltage is correct from STM
             self.highres.set(10000000)  # Calibrate from resistor measurements, assumes output voltage is correct from STM
+            self.gainfactor.set(10.0) # Unless the hardware has been modified this shouldn't need to be changed 
             self.th_1.set(1.0)  # Ch2 is simply Ch1 x 10 so at this stage Ch2 is at 90% maximum and can take over
             self.th_2.set(0.08)  # Around here the limiter turns off, plus a bit more to stop dodgy overlap
             self.th_3.set(1.0)  # Ch3 is on and can take over
@@ -1255,6 +1250,7 @@ class controller:
             #TODO: This could be done in a 'cleaner way' by iterating over the variable dicionary returned by saveData()
             self.lowres.set(data[ 'lowres'])  
             self.highres.set(data[ 'highres'])  
+            self.gainfactor.set(data[ 'gainfactor'])
             self.th_1.set(data[ 'th_1'])  
             self.th_2.set(data[ 'th_2']) 
             self.th_3.set(data[ 'th_3']) 
@@ -1412,6 +1408,7 @@ class controller:
         # See the default settings above for what they do
         data = {'lowres' : self.lowres.get(),
                 'highres' : self.highres.get(),
+                'gainfactor' : self.gainfactor.get(),
                 'th_1' : self.th_1.get(),
                 'th_2' : self.th_2.get(),
                 'th_3' : self.th_3.get(),
@@ -1599,7 +1596,7 @@ class controller:
         Spinbox(
             self.resistance_frame,
             from_=0,
-            to=100000,
+            to=1000000000,
             increment=1,
             width=10,
             wrap=True,
@@ -1612,7 +1609,7 @@ class controller:
 
         Spinbox(
             self.resistance_frame,
-            from_=1000000,
+            from_=0,
             to=1000000000,
             increment=1,
             width=10,
@@ -1620,6 +1617,20 @@ class controller:
             validate='all',
             textvariable=self.highres,
             ).grid(row=1, column=1)
+
+        Label(self.resistance_frame, text='Gain Factor'
+              ).grid(row=2, column=0, sticky=W)
+
+        Spinbox(
+            self.resistance_frame,
+            from_=1,
+            to=100,
+            increment=0.01,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.gainfactor,
+            ).grid(row=2, column=1)
 
         # Cutoff voltage settings for channel switchover
         Label(self.cutoff_frame, text='Cutoff voltages (V)'
@@ -2191,7 +2202,7 @@ class controller:
             for value in reading:
                 # i_list.append(np.log10(float(value)))
                 # i_list.append(value)
-                if ( (value > 0) and (value < 0.5) ):
+                if ( (value > 0) ): #and (value < 0.5) ):
                     i_list.append(value)
         
         if (len(i_list) < 1):
