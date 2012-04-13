@@ -147,6 +147,7 @@ else:
     print "Invalid arguments\n"
     print "Usage: python DiHelperScript <FILENAME> <MIN SCAN LENGTH> <MAX SCAN LENGTH> <BACKGROUND LEVEL VOLTAGE> <SETPOINT LEVEL VOLTAGE>\n"
     print "Example: python DiHelperScript data.txt 1000 100000 0.01 9.9\n"
+    quit()
     
 
 print "Reading data file..."
