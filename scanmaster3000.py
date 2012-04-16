@@ -200,6 +200,7 @@ def correlationHist():
     """Plots a 2D correlation histogram as per Makk et al."""
     
     #FIXME: Linear hist and 2D corr hist don't share the same axis!! Fix this!!!
+
     #Histogram settings from GUI
     numBins = controller.corrbins.get()
     logscale = controller.corrlogscale.get()
@@ -298,22 +299,27 @@ def correlationHist():
         corrPlot.set_ylabel(r'$I(nA)$', fontsize =15)
     corrPlot.grid(True, color='w', linestyle='-', which='major', linewidth=1)
 
+    #Calculate the bar width
+
+    print scanHist
+
+
     #Plot the histograms on the side
     divider = make_axes_locatable(corrPlot)
-    axHisty = divider.append_axes('right', 1.5, pad=0.1)
+    axHisty = divider.append_axes('right', 1.5, pad=0.1) #, sharey=corrPlot)
     plt.setp(axHisty.get_yticklabels(), visible=False)
     plt.setp(axHisty.get_xticklabels(), visible=False)
     #The data is already binned so just plot the bars
     for i in range(len(scanHist)):
-        axHisty = barh(i, scanHist[i], 1)
+        axHisty = barh(i, scanHist[i], 1.0)
 
     #Plot the histogram on the top
-    axHistx = divider.append_axes('top', 1.5, pad=0.1) 
+    axHistx = divider.append_axes('top', 1.5, pad=0.1) #, sharex=corrPlot)
     plt.setp(axHistx.get_yticklabels(), visible=False)
     plt.setp(axHistx.get_xticklabels(), visible=False)
     #The data is already binned so just plot the bars
     for i in range(len(scanHist)):
-        axHistx = bar(i, scanHist[i], 1)
+        axHistx = bar(i, scanHist[i], 1.0)
 
     plt.draw()
     plt.show()
@@ -1033,8 +1039,9 @@ class egraph:
         plat_data,
         title,
         ):
-        #The limit of the x axis plotted
+        #The limit of the x,y axis plotted in various figures
         xlim = float(controller.xfac.get())
+        ylim = float(controller.yfac.get())
         #Constant offset to add to each current value to shift the scan from negative region
         offset = float(controller.offset.get())
         self.ax.cla()  # Clear current axes
@@ -1076,7 +1083,7 @@ class egraph:
         self.ax3.plot(s_dat_ls, i_dat_ls, 'k.-', label='LS x1')
         self.ax3.plot(s_dat_ls, plat_data, 'b.-', label='Plateau fitting')
         self.ax3.grid(True)
-        self.ax3.set_ylim([0, 25000])
+        self.ax3.set_ylim([0, ylim])
         self.ax3.set_xlim([0, xlim])
         self.ax3.set_xlabel('Distance (nm)')
         self.ax3.legend()
@@ -1110,6 +1117,7 @@ class controller:
         # Data processing variables
         self.bkgnd_tol = IntVar()
         self.xfac = DoubleVar()
+        self.yfac = DoubleVar()
         self.offset = DoubleVar()
         self.currentScaleFactor = DoubleVar()
         self.plot_dat = IntVar()
@@ -1194,6 +1202,7 @@ class controller:
             self.finvar.set(5)
             self.bcorfac.set(0.20)
             self.xfac.set(2.00)
+            self.yfac.set(25000)
             self.currentScaleFactor.set(1e9)
             self.offset.set(0.00)
             self.plot_dat.set(0)
@@ -1261,6 +1270,7 @@ class controller:
             self.finvar.set(data[ 'finvar'])  
             self.bcorfac.set(data[ 'bcorfac'])  
             self.xfac.set(data[ 'xfac'])  
+            self.yfac.set(data[ 'yfac'])  
             self.offset.set(data[ 'offset'])  
             self.currentScaleFactor.set(data[ 'currentScaleFactor'])
             self.plot_dat.set(data[ 'plot_dat'])  
@@ -1420,6 +1430,7 @@ class controller:
                 'finvar' : self.finvar.get(),
                 'bcorfac' : self.bcorfac.get(),
                 'xfac' : self.xfac.get(),
+                'yfac' : self.yfac.get(),
                 'offset' : self.offset.get(),
                 'currentScaleFactor' : self.currentScaleFactor.get(),
                 'plot_dat' : self.plot_dat.get(),
@@ -1852,6 +1863,20 @@ class controller:
             textvariable=self.currentScaleFactor,
             )
         self.scalefac.grid(row=5, column=1)
+
+        Label(self.data_frame, text='y-axis limit for BJ plot:'
+              ).grid(row=6, column=0, sticky=W)
+        self.yfactor = Spinbox(
+            self.data_frame,
+            from_=0.1,
+            to=50000.0,
+            increment=0.1,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.yfac,
+            )
+        self.yfactor.grid(row=6, column=1)
 
     def adc_params(self):
 
