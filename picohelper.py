@@ -1,5 +1,5 @@
 #     Doug S. Szumski  <d.s.szumski@gmail.com>  13-04-2012
-#     Quick helper script for DI system data. 
+#     Quick helper script for MI system data. 
 # 
 #     This program is free software; you can redistribute it and/or modify
 #     it under the terms of the GNU General Public License as published by
@@ -17,6 +17,12 @@
 
 import os
 import sys
+import numpy as np
+
+#Threshold level for current average used for inversion of data in the case of
+#negative tip-substrate bias. You may need to adjust this if you decrease your 
+#setpoint current
+scanAvgThreshold = 0.1
 
 def fileoutput(filename,data_1,data_2,data_3,data_4):
     #Writes quad channel data to file 
@@ -26,6 +32,7 @@ def fileoutput(filename,data_1,data_2,data_3,data_4):
             FILE.write('%s' % data_1[i] + '\t %s' % data_2[i] + '\t %s'
                        % data_3[i] + '\t %s \n' % data_4[i])
 
+#Deal with the sys args
 if (len(sys.argv) == 3):
     inputFolder = str(sys.argv[1]) 
     print "Input folder:", inputFolder
@@ -40,12 +47,20 @@ inputPath = os.getcwd() + "/" + inputFolder
 outputPath = os.getcwd() +  "/" + outputFolder
 scanList = os.listdir(inputPath)
 
+#Check to see if output directory exists
+if os.path.exists(outputPath) != True: 
+    os.mkdir(outputPath)
+    print "Created output directory"
+else:
+    print "WARNING: Output directory already exists. Files will be overwritten"
+
+#Now process the scans...
 filecounter = 0
 filename = "scan"
 print "Converting scans..."
 
 for scan in scanList:
-    scanname = filename + str(filecounter).zfill(4) + ".txt"
+    scanName = filename + str(filecounter).zfill(4) + ".txt"
     scanLoc = os.path.abspath(inputPath) + "/" + scan
     with open(scanLoc, 'r') as FILE:
         lines = FILE.readlines()
@@ -55,13 +70,21 @@ for scan in scanList:
         for line in lines: 
             line = line.split()
             i_list.append(float(line[1]))
+    #Check the polarity of the data and invert if negative bias used
+    dat_avg = np.average(i_list)
+    scanLength = len(i_list)
+    print "Channel average is: ", dat_avg, "nA"
+    if (dat_avg < -scanAvgThreshold):
+        print "Negative tip-substrate bias detected; inverting measurement..."
+        for i in range(scanLength):
+            i_list[i] = i_list[i] * -1.0
+    elif (dat_avg > scanAvgThreshold):
+        print "Positive tip-substrate bias detected"
+    else:
+        print "WARNING: Automatic polarity check failed: skipping file."
     #Output four columns of the same data TODO: Convert scanmaster so this isn't necessary
-    fileoutput((outputPath + "/" + scanname),i_list,i_list,i_list,i_list)
-    print "Saved scan as: ", scanname
+    fileoutput((outputPath + "/" + scanName),i_list,i_list,i_list,i_list)
+    print "Saved scan of length ", scanLength, " points as: ", scanName
     filecounter += 1
-
-#TODO: Parameterise "scale" in scanmaster so it can be set to 1 instead of 1e9 -- then scans should load in scanmaster
-#TODO: Check for output directory and create a new one if it doens't exist. 
-
 
 print "Finished converting scans."

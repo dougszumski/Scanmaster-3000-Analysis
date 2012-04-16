@@ -199,6 +199,7 @@ def contour_plot():
 def correlationHist():
     """Plots a 2D correlation histogram as per Makk et al."""
     
+    #FIXME: Linear hist and 2D corr hist don't share the same axis!! Fix this!!!
     #Histogram settings from GUI
     numBins = controller.corrbins.get()
     logscale = controller.corrlogscale.get()
@@ -446,7 +447,7 @@ def dat_input(start, finish, bcorfac):
         #Get the resistor values
         i_ls_res = int(controller.lowres.get())
         i_hs_res = int(controller.highres.get())
-        scale = 1e9  # convert to nanoamps
+        scale = controller.currentScaleFactor.get()  # convert to nanoamps - normally 1e9
         #Make a copy of the list (note to self: direct assignment creates a pointer to the list which caused minor hair loss)
         #Important: This contains voltages so they can be compared directly to the thresholds
         i_dat_combined = list(i_dat_ls)
@@ -581,7 +582,7 @@ def plat_sync(start, finish):
     i_ls_res = int(controller.lowres.get())
     i_hs_res = int(controller.highres.get())
     gainfactor = controller.gainfactor.get()
-    scale = 1e9  # convert to nanoamps
+    scale = controller.currentScaleFactor.get()  # convert to nanoamps
     #Save current directory (should be at script level)
     original_directory = os.getcwd()
     #Make new directoy to work in:
@@ -1110,6 +1111,7 @@ class controller:
         self.bkgnd_tol = IntVar()
         self.xfac = DoubleVar()
         self.offset = DoubleVar()
+        self.currentScaleFactor = DoubleVar()
         self.plot_dat = IntVar()
         self.check_dat = IntVar()
         self.check_dat2 = IntVar()
@@ -1192,7 +1194,8 @@ class controller:
             self.finvar.set(5)
             self.bcorfac.set(0.20)
             self.xfac.set(2.00)
-            self.offset.set(20.00)
+            self.currentScaleFactor.set(1e9)
+            self.offset.set(0.00)
             self.plot_dat.set(0)
             self.check_dat.set(0)
             self.check_dat2.set(0)
@@ -1259,6 +1262,7 @@ class controller:
             self.bcorfac.set(data[ 'bcorfac'])  
             self.xfac.set(data[ 'xfac'])  
             self.offset.set(data[ 'offset'])  
+            self.currentScaleFactor.set(data[ 'currentScaleFactor'])
             self.plot_dat.set(data[ 'plot_dat'])  
             self.check_dat.set(data[ 'check_dat'])  
             self.check_dat2.set(data[ 'check_dat2'])  
@@ -1417,6 +1421,7 @@ class controller:
                 'bcorfac' : self.bcorfac.get(),
                 'xfac' : self.xfac.get(),
                 'offset' : self.offset.get(),
+                'currentScaleFactor' : self.currentScaleFactor.get(),
                 'plot_dat' : self.plot_dat.get(),
                 'check_dat' : self.check_dat.get(),
                 'check_dat2' : self.check_dat2.get(),
@@ -1833,6 +1838,20 @@ class controller:
             textvariable=self.offset,
             )
         self.goffset.grid(row=4, column=1)
+
+        Label(self.data_frame, text='Current scale factor:'
+              ).grid(row=5, column=0, sticky=W)
+        self.scalefac = Spinbox(
+            self.data_frame,
+            from_=0.0,
+            to=10000000000.0,
+            increment=1.0,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.currentScaleFactor,
+            )
+        self.scalefac.grid(row=5, column=1)
 
     def adc_params(self):
 
@@ -2264,7 +2283,7 @@ class controller:
 
 
 root = Tk()
-root.title('Scanmaster 3000 v0.52')
+root.title('Scanmaster 3000 v0.53')
 
 egraph = egraph(root)
 #Create the data container
