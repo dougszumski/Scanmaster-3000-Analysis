@@ -299,27 +299,33 @@ def correlationHist():
         corrPlot.set_ylabel(r'$I(nA)$', fontsize =15)
     corrPlot.grid(True, color='w', linestyle='-', which='major', linewidth=1)
 
-    #Calculate the bar width
-
-    print scanHist
-
-
     #Plot the histograms on the side
     divider = make_axes_locatable(corrPlot)
-    axHisty = divider.append_axes('right', 1.5, pad=0.1) #, sharey=corrPlot)
+    axHisty = divider.append_axes('right', 1.5, pad=0.1, sharey=corrPlot)
     plt.setp(axHisty.get_yticklabels(), visible=False)
     plt.setp(axHisty.get_xticklabels(), visible=False)
-    #The data is already binned so just plot the bars
-    for i in range(len(scanHist)):
-        axHisty = barh(i, scanHist[i], 1.0)
 
+    #Generate the current histogram on the side
+    i_list = []
+    for i in range(len(data.i_dat_all_combined)):
+        for value in data.i_dat_all_combined[i]:
+            if (value > 10**histLowerLim and value < 10**histUpperLim):
+                if logscale:
+                    i_list.append(np.log10(value))
+                else:
+                    i_list.append(value)
+    axHisty.hist(i_list, bins = 200, orientation='horizontal', normed = 1)
     #Plot the histogram on the top
-    axHistx = divider.append_axes('top', 1.5, pad=0.1) #, sharex=corrPlot)
+    axHistx = divider.append_axes('top', 1.5, pad=0.1 , sharex=corrPlot)
     plt.setp(axHistx.get_yticklabels(), visible=False)
     plt.setp(axHistx.get_xticklabels(), visible=False)
-    #The data is already binned so just plot the bars
-    for i in range(len(scanHist)):
-        axHistx = bar(i, scanHist[i], 1.0)
+    axHistx.hist(i_list, bins = 200, normed = 1)    
+
+    #This is the alternative and more efficient way, since the data is already
+    #binned, but unresolved problems with sharing the axes. 
+    #
+    #for i in range(len(scanHist)):
+    #    axHisty = barh(i, scanHist[i], 1.0)
 
     plt.draw()
     plt.show()
