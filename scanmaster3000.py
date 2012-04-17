@@ -199,7 +199,7 @@ def contour_plot():
 def correlationHist():
     """Plots a 2D correlation histogram as per Makk et al."""
     
-    #FIXME: Linear hist and 2D corr hist don't share the same axis!! Fix this!!!
+    #TODO: Turn this into a module?
 
     #Histogram settings from GUI
     numBins = controller.corrbins.get()
@@ -299,7 +299,7 @@ def correlationHist():
         corrPlot.set_ylabel(r'$I(nA)$', fontsize =15)
     corrPlot.grid(True, color='w', linestyle='-', which='major', linewidth=1)
 
-    #Plot the histograms on the side
+    #Setup plot for histograms on the side
     divider = make_axes_locatable(corrPlot)
     axHisty = divider.append_axes('right', 1.5, pad=0.1, sharey=corrPlot)
     plt.setp(axHisty.get_yticklabels(), visible=False)
@@ -309,17 +309,19 @@ def correlationHist():
     i_list = []
     for i in range(len(data.i_dat_all_combined)):
         for value in data.i_dat_all_combined[i]:
-            if (value > 10**histLowerLim and value < 10**histUpperLim):
-                if logscale:
-                    i_list.append(np.log10(value))
-                else:
+            if logscale:
+                value = np.log10(value)
+                if (value > histLowerLim and value < histUpperLim):
                     i_list.append(value)
-    axHisty.hist(i_list, bins = 200, orientation='horizontal', normed = 1)
+            else:
+                if (value > histLowerLim and value < histUpperLim):
+                    i_list.append(value)
+    axHisty.hist(i_list, bins = numBins, orientation='horizontal', normed = 1)
     #Plot the histogram on the top
     axHistx = divider.append_axes('top', 1.5, pad=0.1 , sharex=corrPlot)
     plt.setp(axHistx.get_yticklabels(), visible=False)
     plt.setp(axHistx.get_xticklabels(), visible=False)
-    axHistx.hist(i_list, bins = 200, normed = 1)    
+    axHistx.hist(i_list, bins = numBins, normed = 1)    
 
     #This is the alternative and more efficient way, since the data is already
     #binned, but unresolved problems with sharing the axes. 
