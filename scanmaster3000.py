@@ -323,6 +323,8 @@ def correlationHist():
     plt.setp(axHistx.get_xticklabels(), visible=False)
     axHistx.hist(i_list, bins = numBins, normed = 1)    
 
+    #TODO Add auto y_max on linear histograms? Add auto rescale if plot partially blank?
+
     #This is the alternative and more efficient way, since the data is already
     #binned, but unresolved problems with sharing the axes. 
     #
@@ -2212,38 +2214,47 @@ class controller:
                 #This has the effect of vastly reducing the background peak!
                 if value > 0:
                     i_list.append(np.log10(value))
+
         print 'Lists appended, found:', len(i_list), 'data points.'
 
         if (len(i_list) < 1):
             self.error = showerror('Error', 'No data in memory')
             return
+        
+        #This bit is experimental -- plot 5 KDES as a function of scan number
 
-        # Fit KDE and setup plot
-        # x = np.linspace(min(i_list),max(i_list),kde_points)
-        # haa = statistics.bandwidth(i_list, kernel='Epanechnikov')
-        # bandwidth = haa /2
-        # z = statistics.pdf(i_list, x, h=bandwidth, kernel='E')
-        # print "Optimal bandwidth:", haa
-        # Plot KDE and histogram
-        # plot_y_lim = ( max(z) ) * 1.1
-        # plot_y_lim = 0.12
-        # plt.xscale('log')
+        #numScans = len(data.i_dat_all_combined)    
+        #if numScans > 100:
+            #Make some current lists
+        #    iListA = data.i_dat_all_combined[scansPerList*(scanLists-5):scansPerList*(scanLists-4)]
+        #    iListB = data.i_dat_all_combined[scansPerList*(scanLists-4):scansPerList*(scanLists-3)]
+        #    iListC = data.i_dat_all_combined[scansPerList*(scanLists-3):scansPerList*(scanLists-2)]
+        #    iListD = data.i_dat_all_combined[scansPerList*(scanLists-2):scansPerList*(scanLists-1)]
+        #    iListE = data.i_dat_all_combined[scansPerList*(scanLists-1):scansPerList*(scanLists-0)]
+            #Divide up the scans
+        #    scanLists = 5
+        #    scansPerList = numScans / scanLists
+
+        #Fit KDE and setup plot
+        #Scrap the optimal bandwidth for now.. does it make sense on log scale?
+        #haa = statistics.bandwidth(i_list, kernel='Epanechnikov')
+        #bandwidth = haa /2
+        #print "Optimal bandwidth:", haa
+        x = np.linspace(min(i_list),max(i_list),kde_points)
+        z = statistics.pdf(i_list, x, h=kde_bandwidth, kernel='E')
+        
+        #Plot KDE and histogram
+        #TODO bins should be a GUI parameter
         plt.hist(i_list, bins=500, facecolor='black', normed=1)
-        # qc= 7.74
-        # oc= 7.08....
-        # plt.axvline(np.log10(qc), def __init__(self, myParent):
-        # plt.axvline(oc, c='r')
-        # plt.axvline(oc*2, c='r')
-        # plt.axvline(oc*3, c='r')
-        # plt.axvline(oc*4, c='r')
-        # plt.axvline(oc*5, c='r')
-        # plt.plot(x, z,'b', label='KDE', linewidth=3)
+        plt.plot(x, z,'b', label='KDE', linewidth=3)
+        #plot_y_lim = ( max(z) ) * 1.1
+        #plot_y_lim = 0.12
         # plt.axis([0, kde_stop, 0, plot_y_lim])
-        # plt.legend()
+        plt.legend()
         plt.grid()
         plt.ylabel('Density', fontsize=14)
         plt.xlabel('log_10[current (nanoamps)]', fontsize=14)
-        # plt.title('Molecular conductance: 0 degrees', fontsize=16)
+        plt.title('Current density', fontsize=16)
         plt.show()
 
     def linear_data_plot(self):
