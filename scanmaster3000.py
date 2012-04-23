@@ -68,7 +68,12 @@ from scipy import linspace, polyval, polyfit, sqrt, stats, randn
 #2D corr stuff, FIXME: is some of this pylab stuff redundant?
 from pylab import imshow, plt, contour, xlabel, ylabel, title, figure, barh, bar
 from matplotlib.colors import LinearSegmentedColormap
+import matplotlib.mlab as mlab
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+#Debugging
+import random
+import time
 
 # Retro Fortran modules -- recompile using: f2py -c -m plat_seek plat_seek8.f90 etc..
 
@@ -1038,6 +1043,85 @@ class egraph:
         self.canvas.show()
         self.canvas.get_tk_widget().pack(side=BOTTOM)  # , fill=BOTH, expand=1)
 
+    def confScanPlot(self):
+        """Plots histogram with overlaid Gaussian"""
+        self.f.delaxes(self.ax)
+        self.f.delaxes(self.ax2)
+        self.f.delaxes(self.ax3)
+        
+        # Fetch KDE parameters from control widgets
+        kde_bandwidth = controller.kde_bandwidth.get()
+        kde_start = controller.kde_bandwidth  # The lowest the KDE start can go
+        kde_stop = controller.kde_stop.get()
+        kde_points = controller.kde_points.get()
+
+        # Plot KDE function and read all current data to a single list
+        # Initialse current list and append currents from individual files
+        i_list = []
+
+
+        #FIXME CLean this up when polished
+        DEBUG = False        
+
+        if DEBUG:
+            for i in range(1000):
+                i_list.append(random.gauss(1,0.5))    
+        else:
+            for reading in data.i_dat_all_combined:
+                for value in reading:
+                    if value > 0:
+                        i_list.append(np.log10(value))
+       
+        print 'Lists appended, found:', len(i_list), 'data points.'
+
+        if (len(i_list) < 1):
+            self.error = showerror('Error', 'No data in memory')
+            return
+       
+        self.x = np.linspace(min(i_list),max(i_list),kde_points)
+        self.z = statistics.pdf(i_list, self.x, h=kde_bandwidth, kernel='E')
+        
+        #Plot KDE and histogram
+        self.ax = self.f.add_subplot(111)
+        self.ax.set_xlabel('Log [Current (nA)]')
+        self.ax.set_ylabel('Counts')
+
+        #TODO bins should be a GUI parameter
+        #plt.hist(i_list, bins=500, facecolor='black', normed=1)
+        self.ax.plot(self.x, self.z,'b', label='KDE', linewidth=3)
+
+        #plot_y_lim = ( max(z) ) * 1.1
+        #plot_y_lim = 0.12
+        # plt.axis([0, kde_stop, 0, plot_y_lim])
+        self.ax.legend()
+        self.ax.grid()
+        self.canvas.show()
+
+        #TODO: Finally: put the axes back
+        
+    def plotGaussian(self):
+        #FIXME: Flag error if KDE not computed 
+
+        mu1 = controller.gF_mu1.get()
+        sigma1 = controller.gF_sigma1.get() 
+        scale1 = controller.gF_scale1.get()
+        ydisp2 = controller.gF_ydisp2.get()
+
+        mu2 = controller.gF_mu2.get()
+        sigma2 = controller.gF_sigma2.get() 
+        scale2 = controller.gF_scale2.get()
+        ydisp1 = controller.gF_ydisp1.get()
+        
+        self.ax.cla()
+        self.ax.grid()
+        self.ax.plot(self.x, self.z,'b', label='KDE', linewidth=3)
+        self.fit1 = mlab.normpdf( self.x, mu1, sigma1)*scale1 + ydisp1    
+        self.ax.plot(self.x, self.fit1, 'r--', label='Fit 1', linewidth=3)
+        self.fit2 = mlab.normpdf( self.x, mu2, sigma2)*scale2 + ydisp2   
+        self.ax.plot(self.x, self.fit2, 'g--', label='Fit 2', linewidth=3)
+        self.ax.legend()
+        self.canvas.show()
+        
     def updater(
         self,
         s_dat_ls,
@@ -1061,7 +1145,7 @@ class egraph:
         #self.ax.set_ylim([-200, 200])
         self.ax.plot(s_dat_ls, i_dat_ls, 'k.', label='LS x1')
         self.ax.plot(s_dat_ls, i10_dat_ls, 'b.', label='LS x10')
-        self.ax.plot(s_dat_ls, i_dat_hs, 'g.', label='HS x1')
+        self.ax.plotself.ax.set_xlabel('Distance (nm)')(s_dat_ls, i_dat_hs, 'g.', label='HS x1')
         self.ax.plot(s_dat_ls, i10_dat_hs, 'r.', label='HS x10')
         self.ax.grid(True)
         self.ax.set_xlim([0, xlim])
@@ -1167,6 +1251,16 @@ class controller:
         self.xbin_contour = IntVar()
         self.ybin_contour = IntVar()
 
+        #Gaussian fit parameters
+        self.gF_mu1 = DoubleVar()
+        self.gF_sigma1 = DoubleVar()
+        self.gF_scale1 = DoubleVar()
+        self.gF_ydisp1 = DoubleVar()
+        self.gF_mu2 = DoubleVar()
+        self.gF_sigma2 = DoubleVar() 
+        self.gF_scale2 = DoubleVar()
+        self.gF_ydisp2 = DoubleVar()
+
         #2D Correlation plot parameters
         self.corrcurrentmin = DoubleVar()
         self.corrcurrentmax = DoubleVar()
@@ -1242,6 +1336,16 @@ class controller:
             self.xbin_contour.set(100)
             self.ybin_contour.set(100)
 
+            #Gaussian fit parameters
+            self.gF_mu1.set(0.5)
+            self.gF_sigma1.set(1.0)
+            self.gF_scale1.set(1.0)
+            self.gF_ydisp1.set(0.0)
+            self.gF_mu2.set(0.6)
+            self.gF_sigma2.set(1.3)
+            self.gF_scale2.set(1.0)
+            self.gF_ydisp2.set(0.0)
+
             # 2D Correlation plot parameter defaults
             self.corrcurrentmin.set(-1.0)
             self.corrcurrentmax.set(4.0)
@@ -1301,6 +1405,14 @@ class controller:
             self.ymax_contour.set(data[ 'ymax_contour'])  
             self.xbin_contour.set(data[ 'xbin_contour'])  
             self.ybin_contour.set(data[ 'ybin_contour'])  
+            self.gF_mu1.set(data['gF_mu1'])
+            self.gF_sigma1.set(data['gF_sigma1'])
+            self.gF_scale1.set(data['gF_scale1'])
+            self.gF_ydisp1.set(data['gF_ydisp1'])
+            self.gF_mu2.set(data['gF_mu2'])
+            self.gF_sigma2.set(data['gF_sigma2'])
+            self.gF_scale2.set(data['gF_scale2'])
+            self.gF_ydisp2.set(data['gF_ydisp2'])
             self.corrcurrentmin.set(data[ 'corrcurrentmin'])
             self.corrcurrentmax.set(data[ 'corrcurrentmax'])
             self.corrbins.set(data[ 'corrbins'])
@@ -1344,6 +1456,10 @@ class controller:
                 , underline=1, command=contour_plot)
         self.PlotMenu.menu.add_command(label='2D correlation histogram'
                 , underline=1, command=correlationHist)
+        self.PlotMenu.menu.add_command(label='Embedded histogram'
+                , underline=1, command=egraph.confScanPlot)
+        self.PlotMenu.menu.add_command(label='Add Gaussian'
+                , underline=1, command=egraph.plotGaussian)
         self.PlotMenu['menu'] = self.PlotMenu.menu
 
         # Scan analysis menu -- everything related to reading in and filtering individual I(s) scans
@@ -1414,6 +1530,8 @@ class controller:
                 , underline=0, command=self.correlation_params)
         self.SettingsMenu.menu.add_command(label='KDE plotting',
                 underline=0, command=self.kde_params)
+        self.SettingsMenu.menu.add_command(label='Gaussian fitting',
+                underline=0, command=self.gaussian_params)
         self.SettingsMenu.menu.add_command(label='Quad channel module calibration'
                 , underline=0, command=self.quadchannel_params)
         self.SettingsMenu.menu.add_command(label='Plateau fitting',
@@ -1461,6 +1579,14 @@ class controller:
                 'ymax_contour' : self.ymax_contour.get(),
                 'xbin_contour' : self.xbin_contour.get(),
                 'ybin_contour' : self.ybin_contour.get(),
+                'gF_mu1' : self.gF_mu1.get(),
+                'gF_sigma1': self.gF_sigma1.get(),
+                'gF_scale1' : self.gF_scale1.get(),
+                'gF_ydisp1' : self.gF_ydisp1.get(),
+                'gF_mu2' : self.gF_mu2.get(),
+                'gF_sigma2' : self.gF_sigma2.get(),
+                'gF_scale2' : self.gF_scale2.get(),
+                'gF_ydisp2' : self.gF_ydisp2.get(),
                 'corrcurrentmin' : self.corrcurrentmin.get(),
                 'corrcurrentmax' : self.corrcurrentmax.get(),
                 'corrbins' : self.corrbins.get(),
@@ -1521,7 +1647,7 @@ class controller:
             #Display an error if file isn't there
             self.error = showerror('Error', 'nfo.txt not found')
 
-    def chopper_params(self): #MARKER
+    def chopper_params(self):
 
         # Configure chopper parameters
         self.chopper_params = Toplevel()
@@ -2076,7 +2202,7 @@ class controller:
         self.currentmax.grid(row=1, column=1)
 
         Label(self.correlation_frame, text='Number of bins:').grid(row=2,
-                column=0, sticky=W)
+                column=0, sticky=W)    
         self.corrnumbins = Spinbox(
             self.correlation_frame,
             from_=10,
@@ -2093,6 +2219,132 @@ class controller:
                 column=0, sticky=W)
         self.logscale = Checkbutton(self.correlation_frame, variable=self.corrlogscale)
         self.logscale.grid(row=3, column=1)
+
+
+    def gaussian_params(self):
+
+        self.gauss_params = Toplevel()
+        self.gauss_params.title('Gaussian fitting parameters')
+        self.gauss_frame = Frame(self.gauss_params)
+        self.gauss_frame.pack(side=TOP, padx=50, pady=5)
+
+        def test():
+            print "test"
+
+        Label(self.gauss_frame, text='Mu 1:').grid(row=0,
+                column=0, sticky=W)
+        self.mu1 = Spinbox(
+            self.gauss_frame,
+            from_=--10,
+            to=10,
+            increment=0.01,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.gF_mu1,
+            )
+        self.mu1.grid(row=0, column=1)
+
+        
+
+        Label(self.gauss_frame, text='Sigma 1:').grid(row=1,
+                column=0, sticky=W)
+        self.sigma1 = Spinbox(
+            self.gauss_frame,
+            from_=--10,
+            to=10,
+            increment=0.01,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.gF_sigma1,
+            )
+        self.sigma1.grid(row=1, column=1)
+
+        Label(self.gauss_frame, text='Scale factor 1:').grid(row=2,
+                column=0, sticky=W)
+        self.scale1 = Spinbox(
+            self.gauss_frame,
+            from_=--10,
+            to=10,
+            increment=0.01,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.gF_scale1,
+            )
+        self.scale1.grid(row=2, column=1)
+
+        Label(self.gauss_frame, text='y-disp 1:').grid(row=3,
+                column=0, sticky=W)
+        self.ydisp1 = Spinbox(
+            self.gauss_frame,
+            from_=--10,
+            to=10,
+            increment=0.01,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.gF_ydisp1,
+            )
+        self.ydisp1.grid(row=3, column=1)
+
+        Label(self.gauss_frame, text='Mu 2:').grid(row=4,
+                column=0, sticky=W)
+        self.mu2 = Spinbox(
+            self.gauss_frame,
+            from_=--10,
+            to=10,
+            increment=0.01,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.gF_mu2,
+            )
+        self.mu2.grid(row=4, column=1)
+
+        Label(self.gauss_frame, text='Sigma 2:').grid(row=5,
+                column=0, sticky=W)
+        self.sigma2 = Spinbox(
+            self.gauss_frame,
+            from_=--10,
+            to=10,
+            increment=0.01,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.gF_sigma2,
+            )
+        self.sigma2.grid(row=5, column=1)
+
+        Label(self.gauss_frame, text='y-disp 2:').grid(row=6,
+                column=0, sticky=W)
+        self.ydisp2 = Spinbox(
+            self.gauss_frame,
+            from_=--10,
+            to=10,
+            increment=0.01,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.gF_ydisp2,
+            )
+        self.ydisp2.grid(row=6, column=1)
+
+        Label(self.gauss_frame, text='Scale factor 2:').grid(row=7,
+                column=0, sticky=W)
+        self.scale2 = Spinbox(
+            self.gauss_frame,
+            from_=--10,
+            to=10,
+            increment=0.01,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.gF_scale2,
+            )
+        self.scale2.grid(row=7, column=1)
+
 
     def plateau_fitting_params(self):
 
@@ -2324,10 +2576,9 @@ class controller:
     def importdata(self):
         # Needs to call tea break maker
         tea_break_maker()
-
-
+   
 root = Tk()
-root.title('Scanmaster 3000 v0.53')
+root.title('Scanmaster 3000 v0.54')
 
 egraph = egraph(root)
 #Create the data container
