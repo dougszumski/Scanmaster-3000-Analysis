@@ -1059,9 +1059,8 @@ class egraph:
         # Initialse current list and append currents from individual files
         i_list = []
 
-
         #FIXME CLean this up when polished
-        DEBUG = False        
+        DEBUG = True        
 
         if DEBUG:
             for i in range(1000):
@@ -2228,14 +2227,21 @@ class controller:
         self.gauss_frame = Frame(self.gauss_params)
         self.gauss_frame.pack(side=TOP, padx=50, pady=5)
 
-        def test():
-            print "test"
-
+        #Callback for dynamic updating of plot
+        def callback(var):
+            #Catch invalid variables
+            try: 
+                if (var.get() > 0):
+                    egraph.plotGaussian()
+                return True
+            except ValueError:
+                return False
+            
         Label(self.gauss_frame, text='Mu 1:').grid(row=0,
                 column=0, sticky=W)
         self.mu1 = Spinbox(
             self.gauss_frame,
-            from_=--10,
+            from_=-10,
             to=10,
             increment=0.01,
             width=10,
@@ -2245,13 +2251,11 @@ class controller:
             )
         self.mu1.grid(row=0, column=1)
 
-        
-
         Label(self.gauss_frame, text='Sigma 1:').grid(row=1,
                 column=0, sticky=W)
         self.sigma1 = Spinbox(
             self.gauss_frame,
-            from_=--10,
+            from_=-10,
             to=10,
             increment=0.01,
             width=10,
@@ -2265,7 +2269,7 @@ class controller:
                 column=0, sticky=W)
         self.scale1 = Spinbox(
             self.gauss_frame,
-            from_=--10,
+            from_=-10,
             to=10,
             increment=0.01,
             width=10,
@@ -2279,7 +2283,7 @@ class controller:
                 column=0, sticky=W)
         self.ydisp1 = Spinbox(
             self.gauss_frame,
-            from_=--10,
+            from_=-10,
             to=10,
             increment=0.01,
             width=10,
@@ -2293,7 +2297,7 @@ class controller:
                 column=0, sticky=W)
         self.mu2 = Spinbox(
             self.gauss_frame,
-            from_=--10,
+            from_=-10,
             to=10,
             increment=0.01,
             width=10,
@@ -2307,7 +2311,7 @@ class controller:
                 column=0, sticky=W)
         self.sigma2 = Spinbox(
             self.gauss_frame,
-            from_=--10,
+            from_=-10,
             to=10,
             increment=0.01,
             width=10,
@@ -2321,7 +2325,7 @@ class controller:
                 column=0, sticky=W)
         self.ydisp2 = Spinbox(
             self.gauss_frame,
-            from_=--10,
+            from_=-10,
             to=10,
             increment=0.01,
             width=10,
@@ -2335,7 +2339,7 @@ class controller:
                 column=0, sticky=W)
         self.scale2 = Spinbox(
             self.gauss_frame,
-            from_=--10,
+            from_=-10,
             to=10,
             increment=0.01,
             width=10,
@@ -2345,6 +2349,17 @@ class controller:
             )
         self.scale2.grid(row=7, column=1)
 
+        #Trace the relevant variables for dynamic updating
+        #name is name of tk var, index if var i an array, otherwise empty string, 
+        #FIXME Everything slows down if this is called more than once!!!
+        self.gF_mu1.trace("w", lambda name, index, mode, gF_mu1=self.gF_mu1: callback(gF_mu1))
+        self.gF_mu2.trace("w", lambda name, index, mode, gF_mu2=self.gF_mu2: callback(gF_mu2))
+        self.gF_sigma1.trace("w", lambda name, index, mode, gF_sigma1=self.gF_sigma1: callback(gF_sigma1))
+        self.gF_sigma2.trace("w", lambda name, index, mode, gF_sigma2=self.gF_sigma2: callback(gF_sigma2))
+        self.gF_scale1.trace("w", lambda name, index, mode, gF_scale1=self.gF_scale1: callback(gF_scale1))
+        self.gF_scale2.trace("w", lambda name, index, mode, gF_scale2=self.gF_scale2: callback(gF_scale2))
+        self.gF_ydisp1.trace("w", lambda name, index, mode, gF_ydisp1=self.gF_ydisp1: callback(gF_ydisp1))
+        self.gF_ydisp2.trace("w", lambda name, index, mode, gF_ydisp2=self.gF_ydisp2: callback(gF_ydisp2))
 
     def plateau_fitting_params(self):
 
