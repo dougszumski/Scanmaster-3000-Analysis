@@ -1045,10 +1045,17 @@ class egraph:
 
     def confScanPlot(self):
         """Plots histogram with overlaid Gaussian"""
-        self.f.delaxes(self.ax)
-        self.f.delaxes(self.ax2)
-        self.f.delaxes(self.ax3)
         
+        #Reconfigure the axes if they're setup for scan plotting
+        try:
+            self.f.delaxes(self.ax)
+            self.f.delaxes(self.ax2)
+            self.f.delaxes(self.ax3)
+            self.g_ax = self.f.add_subplot(111)
+        except ValueError:
+            #Clear the exisiting plot
+            self.g_ax.cla() 
+                    
         # Fetch KDE parameters from control widgets
         kde_bandwidth = controller.kde_bandwidth.get()
         kde_start = controller.kde_bandwidth  # The lowest the KDE start can go
@@ -1061,7 +1068,6 @@ class egraph:
 
         #FIXME CLean this up when polished
         DEBUG = True        
-
         if DEBUG:
             for i in range(1000):
                 i_list.append(random.gauss(1,0.5))    
@@ -1076,31 +1082,28 @@ class egraph:
         if (len(i_list) < 1):
             self.error = showerror('Error', 'No data in memory')
             return
-       
+        
+        #Compute the KDE
         self.x = np.linspace(min(i_list),max(i_list),kde_points)
         self.z = statistics.pdf(i_list, self.x, h=kde_bandwidth, kernel='E')
         
         #Plot KDE and histogram
-        self.ax = self.f.add_subplot(111)
-        self.ax.set_xlabel('Log [Current (nA)]')
-        self.ax.set_ylabel('Counts')
-
+        self.g_ax.set_xlabel('Log [Current (nA)]')
+        self.g_ax.set_ylabel('Counts')
         #TODO bins should be a GUI parameter
         #plt.hist(i_list, bins=500, facecolor='black', normed=1)
-        self.ax.plot(self.x, self.z,'b', label='KDE', linewidth=3)
-
+        self.g_ax.plot(self.x, self.z,'b', label='KDE', linewidth=3)
         #plot_y_lim = ( max(z) ) * 1.1
         #plot_y_lim = 0.12
         # plt.axis([0, kde_stop, 0, plot_y_lim])
-        self.ax.legend()
-        self.ax.grid()
+        self.g_ax.legend()
+        self.g_ax.grid()
         self.canvas.show()
 
-        #TODO: Finally: put the axes back
         
     def plotGaussian(self):
+        
         #FIXME: Flag error if KDE not computed 
-
         mu1 = controller.gF_mu1.get()
         sigma1 = controller.gF_sigma1.get() 
         scale1 = controller.gF_scale1.get()
@@ -1111,14 +1114,14 @@ class egraph:
         scale2 = controller.gF_scale2.get()
         ydisp1 = controller.gF_ydisp1.get()
         
-        self.ax.cla()
-        self.ax.grid()
-        self.ax.plot(self.x, self.z,'b', label='KDE', linewidth=3)
+        self.g_ax.cla()
+        self.g_ax.grid()
+        self.g_ax.plot(self.x, self.z,'b', label='KDE', linewidth=3)
         self.fit1 = mlab.normpdf( self.x, mu1, sigma1)*scale1 + ydisp1    
-        self.ax.plot(self.x, self.fit1, 'r--', label='Fit 1', linewidth=3)
+        self.g_ax.plot(self.x, self.fit1, 'r--', label='Fit 1', linewidth=3)
         self.fit2 = mlab.normpdf( self.x, mu2, sigma2)*scale2 + ydisp2   
-        self.ax.plot(self.x, self.fit2, 'g--', label='Fit 2', linewidth=3)
-        self.ax.legend()
+        self.g_ax.plot(self.x, self.fit2, 'g--', label='Fit 2', linewidth=3)
+        self.g_ax.legend()
         self.canvas.show()
         
     def updater(
@@ -1132,19 +1135,32 @@ class egraph:
         plat_data,
         title,
         ):
+
+        #Configure the axes
+        try:
+            #Delete the gaussian plot if it exists
+            self.f.delaxes(self.g_ax)
+            #Then setup the scan axes
+            self.ax = self.f.add_subplot(131)
+            self.ax2 = self.f.add_subplot(132)
+            self.ax3 = self.f.add_subplot(133)
+        except ValueError:
+            pass
+        except AttributeError:
+            pass
+
         #The limit of the x,y axis plotted in various figures
         xlim = float(controller.xfac.get())
         ylim = float(controller.yfac.get())
         #Constant offset to add to each current value to shift the scan from negative region
         offset = float(controller.offset.get())
+        
         self.ax.cla()  # Clear current axes
-
         # PLOT 1
         self.ax.set_yscale('log')
-        #self.ax.set_ylim([-200, 200])
         self.ax.plot(s_dat_ls, i_dat_ls, 'k.', label='LS x1')
         self.ax.plot(s_dat_ls, i10_dat_ls, 'b.', label='LS x10')
-        self.ax.plotself.ax.set_xlabel('Distance (nm)')(s_dat_ls, i_dat_hs, 'g.', label='HS x1')
+        self.ax.plot(s_dat_ls, i_dat_hs, 'g.', label='HS x1')
         self.ax.plot(s_dat_ls, i10_dat_hs, 'r.', label='HS x10')
         self.ax.grid(True)
         self.ax.set_xlim([0, xlim])
@@ -1154,7 +1170,6 @@ class egraph:
 
         # PLOT 2
         self.ax2.cla()  # Clear current axes
-        #self.ax2.set_ylim([-100, 500])
         self.ax2.set_yscale('log')
         #Add the current offset (only for cosmetic purposes to stop negative data getting ignored)
         i_dat_shifted = []
@@ -2218,7 +2233,6 @@ class controller:
                 column=0, sticky=W)
         self.logscale = Checkbutton(self.correlation_frame, variable=self.corrlogscale)
         self.logscale.grid(row=3, column=1)
-
 
     def gaussian_params(self):
 
