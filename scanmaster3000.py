@@ -1040,6 +1040,11 @@ class egraph:
         self.ax2 = self.f.add_subplot(132)
         self.ax3 = self.f.add_subplot(133)
         self.canvas = FigureCanvasTkAgg(self.f, master=myParent)
+
+        toolbar = NavigationToolbar2TkAgg( self.canvas, root )
+        #toolbar.pack(side=Tk.TOP, fill=Tk.BOTH, expand=1)
+        toolbar.update()
+
         self.canvas.show()
         self.canvas.get_tk_widget().pack(side=BOTTOM)  # , fill=BOTH, expand=1)
 
@@ -1067,7 +1072,7 @@ class egraph:
         i_list = []
 
         #FIXME CLean this up when polished
-        DEBUG = True        
+        DEBUG = True       
         if DEBUG:
             for i in range(1000):
                 i_list.append(random.gauss(1,0.5))    
@@ -1103,7 +1108,7 @@ class egraph:
         
     def plotGaussian(self):
         
-        #FIXME: Flag error if KDE not computed 
+        #FIXME: Flag error if KDE not computed othing on exception
         mu1 = controller.gF_mu1.get()
         sigma1 = controller.gF_sigma1.get() 
         scale1 = controller.gF_scale1.get()
@@ -2245,13 +2250,17 @@ class controller:
         def callback(var):
             #Catch invalid variables
             try: 
-                if (var.get() > 0):
-                    egraph.plotGaussian()
+                #Scrap this for now because mu must be able to go negative
+                #if (var.get() > 0):
+                egraph.plotGaussian()
                 return True
             except ValueError:
                 return False
             
-        Label(self.gauss_frame, text='Mu 1:').grid(row=0,
+        Label(self.gauss_frame, text='Gaussian 1 settings:', pady=10).grid(row=0,
+                column=0, sticky=W)
+
+        Label(self.gauss_frame, text='Mu 1:').grid(row=1,
                 column=0, sticky=W)
         self.mu1 = Spinbox(
             self.gauss_frame,
@@ -2263,9 +2272,9 @@ class controller:
             validate='all',
             textvariable=self.gF_mu1,
             )
-        self.mu1.grid(row=0, column=1)
+        self.mu1.grid(row=1, column=1)
 
-        Label(self.gauss_frame, text='Sigma 1:').grid(row=1,
+        Label(self.gauss_frame, text='Sigma 1:').grid(row=2,
                 column=0, sticky=W)
         self.sigma1 = Spinbox(
             self.gauss_frame,
@@ -2277,9 +2286,9 @@ class controller:
             validate='all',
             textvariable=self.gF_sigma1,
             )
-        self.sigma1.grid(row=1, column=1)
+        self.sigma1.grid(row=2, column=1)
 
-        Label(self.gauss_frame, text='Scale factor 1:').grid(row=2,
+        Label(self.gauss_frame, text='Scale factor 1:').grid(row=3,
                 column=0, sticky=W)
         self.scale1 = Spinbox(
             self.gauss_frame,
@@ -2291,9 +2300,9 @@ class controller:
             validate='all',
             textvariable=self.gF_scale1,
             )
-        self.scale1.grid(row=2, column=1)
+        self.scale1.grid(row=3, column=1)
 
-        Label(self.gauss_frame, text='y-disp 1:').grid(row=3,
+        Label(self.gauss_frame, text='y-disp 1:').grid(row=4,
                 column=0, sticky=W)
         self.ydisp1 = Spinbox(
             self.gauss_frame,
@@ -2305,9 +2314,12 @@ class controller:
             validate='all',
             textvariable=self.gF_ydisp1,
             )
-        self.ydisp1.grid(row=3, column=1)
+        self.ydisp1.grid(row=4, column=1)
 
-        Label(self.gauss_frame, text='Mu 2:').grid(row=4,
+        Label(self.gauss_frame, text='Gaussian 2 settings:', pady=10).grid(row=5,
+                column=0, sticky=W)
+
+        Label(self.gauss_frame, text='Mu 2:').grid(row=6,
                 column=0, sticky=W)
         self.mu2 = Spinbox(
             self.gauss_frame,
@@ -2319,9 +2331,9 @@ class controller:
             validate='all',
             textvariable=self.gF_mu2,
             )
-        self.mu2.grid(row=4, column=1)
+        self.mu2.grid(row=6, column=1)
 
-        Label(self.gauss_frame, text='Sigma 2:').grid(row=5,
+        Label(self.gauss_frame, text='Sigma 2:').grid(row=7,
                 column=0, sticky=W)
         self.sigma2 = Spinbox(
             self.gauss_frame,
@@ -2333,9 +2345,9 @@ class controller:
             validate='all',
             textvariable=self.gF_sigma2,
             )
-        self.sigma2.grid(row=5, column=1)
+        self.sigma2.grid(row=7, column=1)
 
-        Label(self.gauss_frame, text='y-disp 2:').grid(row=6,
+        Label(self.gauss_frame, text='y-disp 2:').grid(row=8,
                 column=0, sticky=W)
         self.ydisp2 = Spinbox(
             self.gauss_frame,
@@ -2347,9 +2359,9 @@ class controller:
             validate='all',
             textvariable=self.gF_ydisp2,
             )
-        self.ydisp2.grid(row=6, column=1)
+        self.ydisp2.grid(row=8, column=1)
 
-        Label(self.gauss_frame, text='Scale factor 2:').grid(row=7,
+        Label(self.gauss_frame, text='Scale factor 2:').grid(row=9,
                 column=0, sticky=W)
         self.scale2 = Spinbox(
             self.gauss_frame,
@@ -2361,7 +2373,7 @@ class controller:
             validate='all',
             textvariable=self.gF_scale2,
             )
-        self.scale2.grid(row=7, column=1)
+        self.scale2.grid(row=9, column=1)
 
         #Trace the relevant variables for dynamic updating
         #name is name of tk var, index if var i an array, otherwise empty string, 
@@ -2607,11 +2619,9 @@ class controller:
         tea_break_maker()
    
 root = Tk()
-root.title('Scanmaster 3000 v0.54')
-
+root.title('Scanmaster 3000 v0.55')
 egraph = egraph(root)
 #Create the data container
 data = Data()
 controller = controller(root)
 root.mainloop()
-
