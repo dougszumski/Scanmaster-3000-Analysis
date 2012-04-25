@@ -130,7 +130,6 @@ def scaninput(name):
         lines = infile.readlines()
 
         # Reconstruct the x-axis using variables from the menu
-
         sampsec = controller.sampsec.get()
         srange = controller.srange.get()
         sduration = controller.sduration.get()
@@ -150,8 +149,7 @@ def scaninput(name):
         return (i_dat_ls, i10_dat_ls, i_dat_hs, i10_dat_hs, s_dat_ls)
  
 def contour_plot():
-
-    # Plots 2d histograms of current distance scans
+    """ Plots 2d histograms of current distance scans """
 
     # Generate list of all distances. This list will be the same length as the current list and therefore
     # the indices will be directly related.
@@ -1026,11 +1024,10 @@ class InitChopper(threading.Thread):
 class egraph:
 
     # Plots embedded matplotlib graphs in main window
-    # NOTE: To edit the x,y range of the plots change xmin, xmax, ymin, ymax below
     def __init__(self, myParent):
         #Deal with different screen resolutions
-        if root.winfo_screenwidth() <= 1024:
-            #Low res so downsize figures, ideal for XGA, but no smaller (unlikely!)
+        if root.winfo_screenheight() <= 768:
+            #Low res so downsize figures, ideal for XGA, WXGA but no smaller (unlikely!)
             self.f = Figure(figsize=(10, 7), dpi=80)
         else:
             #This is fine for SXGA and higher
@@ -1040,13 +1037,12 @@ class egraph:
         self.ax2 = self.f.add_subplot(132)
         self.ax3 = self.f.add_subplot(133)
         self.canvas = FigureCanvasTkAgg(self.f, master=myParent)
-
+        #Add the toolbar
         toolbar = NavigationToolbar2TkAgg( self.canvas, root )
-        #toolbar.pack(side=Tk.TOP, fill=Tk.BOTH, expand=1)
+        toolbar.pack(side=BOTTOM, fill=BOTH, expand=1)
         toolbar.update()
-
         self.canvas.show()
-        self.canvas.get_tk_widget().pack(side=BOTTOM)  # , fill=BOTH, expand=1)
+        self.canvas.get_tk_widget().pack(side=BOTTOM)
 
     def confScanPlot(self):
         """Plots histogram with overlaid Gaussian"""
@@ -1066,6 +1062,15 @@ class egraph:
         kde_start = controller.kde_bandwidth  # The lowest the KDE start can go
         kde_stop = controller.kde_stop.get()
         kde_points = controller.kde_points.get()
+
+        #Fetch the plot limits
+        self.g_xmin = controller.gF_xmin.get()
+        self.g_xmax = controller.gF_xmax.get()
+        self.g_ymin = controller.gF_ymin.get()
+        self.g_ymax = controller.gF_ymax.get()
+        #Set plot limits
+        self.g_ax.set_xlim([self.g_xmin, self.g_xmax])
+        self.g_ax.set_ylim([self.g_ymin, self.g_ymax])
 
         # Plot KDE function and read all current data to a single list
         # Initialse current list and append currents from individual files
@@ -1095,6 +1100,17 @@ class egraph:
         #Plot KDE and histogram
         self.g_ax.set_xlabel('Log [Current (nA)]')
         self.g_ax.set_ylabel('Counts')
+
+        #Set the title
+        try:
+            self.g_title = data.filename[0:string.rfind(data.filename, '/')]
+        except AttributeError:
+            self.g_title = "Folder undefined"
+        self.g_ax.set_title(self.g_title)
+
+        #Set some labels
+        self.g_ax.text(self.g_xmin, self.g_ymin, "TEST WRITING", {'color' : 'g', 'fontsize' : 20})
+
         #TODO bins should be a GUI parameter
         #plt.hist(i_list, bins=500, facecolor='black', normed=1)
         self.g_ax.plot(self.x, self.z,'b', label='KDE', linewidth=3)
@@ -1108,7 +1124,6 @@ class egraph:
         
     def plotGaussian(self):
         
-        #FIXME: Flag error if KDE not computed othing on exception
         mu1 = controller.gF_mu1.get()
         sigma1 = controller.gF_sigma1.get() 
         scale1 = controller.gF_scale1.get()
@@ -1119,7 +1134,7 @@ class egraph:
         scale2 = controller.gF_scale2.get()
         ydisp1 = controller.gF_ydisp1.get()
         
-        self.g_ax.cla()
+        self.g_ax.cla() #TODO: Rather than clearing and replotting can you remove last previous plot??
         self.g_ax.grid()
         self.g_ax.plot(self.x, self.z,'b', label='KDE', linewidth=3)
         self.fit1 = mlab.normpdf( self.x, mu1, sigma1)*scale1 + ydisp1    
@@ -1127,6 +1142,13 @@ class egraph:
         self.fit2 = mlab.normpdf( self.x, mu2, sigma2)*scale2 + ydisp2   
         self.g_ax.plot(self.x, self.fit2, 'g--', label='Fit 2', linewidth=3)
         self.g_ax.legend()
+        #TODO: A lot of replication between here and confScanplot 
+        #Plot KDE and histogram
+        self.g_ax.set_xlabel('Log [Current (nA)]')
+        self.g_ax.set_ylabel('Counts')
+        self.g_ax.set_title(self.g_title)
+        self.g_ax.set_xlim([self.g_xmin, self.g_xmax])
+        self.g_ax.set_ylim([self.g_ymin, self.g_ymax])
         self.canvas.show()
         
     def updater(
@@ -1279,6 +1301,10 @@ class controller:
         self.gF_sigma2 = DoubleVar() 
         self.gF_scale2 = DoubleVar()
         self.gF_ydisp2 = DoubleVar()
+        self.gF_xmin = DoubleVar()
+        self.gF_xmax = DoubleVar()
+        self.gF_ymin = DoubleVar()
+        self.gF_ymax = DoubleVar()
 
         #2D Correlation plot parameters
         self.corrcurrentmin = DoubleVar()
@@ -1364,6 +1390,10 @@ class controller:
             self.gF_sigma2.set(1.3)
             self.gF_scale2.set(1.0)
             self.gF_ydisp2.set(0.0)
+            self.gF_xmin.set(-1.0)
+            self.gF_xmax.set(5.0)
+            self.gF_ymin.set(0.0)
+            self.gF_ymax.set(0.25)
 
             # 2D Correlation plot parameter defaults
             self.corrcurrentmin.set(-1.0)
@@ -1432,6 +1462,10 @@ class controller:
             self.gF_sigma2.set(data['gF_sigma2'])
             self.gF_scale2.set(data['gF_scale2'])
             self.gF_ydisp2.set(data['gF_ydisp2'])
+            self.gF_xmin.set(data['gF_xmin'])
+            self.gF_xmax.set(data['gF_xmax'])
+            self.gF_ymin.set(data['gF_ymin'])
+            self.gF_ymax.set(data['gF_ymax'])
             self.corrcurrentmin.set(data[ 'corrcurrentmin'])
             self.corrcurrentmax.set(data[ 'corrcurrentmax'])
             self.corrbins.set(data[ 'corrbins'])
@@ -1475,10 +1509,8 @@ class controller:
                 , underline=1, command=contour_plot)
         self.PlotMenu.menu.add_command(label='2D correlation histogram'
                 , underline=1, command=correlationHist)
-        self.PlotMenu.menu.add_command(label='Embedded histogram'
+        self.PlotMenu.menu.add_command(label='Embedded current histogram (Testing)'
                 , underline=1, command=egraph.confScanPlot)
-        self.PlotMenu.menu.add_command(label='Add Gaussian'
-                , underline=1, command=egraph.plotGaussian)
         self.PlotMenu['menu'] = self.PlotMenu.menu
 
         # Scan analysis menu -- everything related to reading in and filtering individual I(s) scans
@@ -1606,6 +1638,10 @@ class controller:
                 'gF_sigma2' : self.gF_sigma2.get(),
                 'gF_scale2' : self.gF_scale2.get(),
                 'gF_ydisp2' : self.gF_ydisp2.get(),
+                'gF_xmin' : self.gF_xmin.get(),
+                'gF_xmax' : self.gF_xmax.get(),
+                'gF_ymin' : self.gF_ymin.get(),
+                'gF_ymax' : self.gF_ymax.get(),
                 'corrcurrentmin' : self.corrcurrentmin.get(),
                 'corrcurrentmax' : self.corrcurrentmax.get(),
                 'corrbins' : self.corrbins.get(),
@@ -2374,6 +2410,67 @@ class controller:
             textvariable=self.gF_scale2,
             )
         self.scale2.grid(row=9, column=1)
+
+        Label(self.gauss_frame, text='Axis limits:', pady=10).grid(row=10,
+                column=0, sticky=W)
+    
+        Label(self.gauss_frame, text='x-axis minimum:').grid(row=11,
+                column=0, sticky=W)
+        self.xmin = Spinbox(
+            self.gauss_frame,
+            from_=-10,
+            to=10,
+            increment=0.01,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.gF_xmin,
+            )
+        self.xmin.grid(row=11, column=1)
+
+        Label(self.gauss_frame, text='x-axis maximum:').grid(row=12,
+                column=0, sticky=W)
+        self.xmax = Spinbox(
+            self.gauss_frame,
+            from_=-10,  #FIXME put here xmin?
+            to=10,
+            increment=0.01,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.gF_xmax,
+            )
+        self.xmax.grid(row=12, column=1)
+
+        Label(self.gauss_frame, text='y-axis minimum:').grid(row=13,
+                column=0, sticky=W)
+        self.ymin = Spinbox(
+            self.gauss_frame,
+            from_=0,
+            to=10,
+            increment=0.01,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.gF_ymin,
+            )
+        self.ymin.grid(row=13, column=1)
+
+        Label(self.gauss_frame, text='y-axis maximum:').grid(row=14,
+                column=0, sticky=W)
+        self.ymax = Spinbox(
+            self.gauss_frame,
+            from_=0,
+            to=10,
+            increment=0.01,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.gF_ymax,
+            )
+        self.ymax.grid(row=14, column=1)
+
+
 
         #Trace the relevant variables for dynamic updating
         #name is name of tk var, index if var i an array, otherwise empty string, 
