@@ -1077,7 +1077,7 @@ class egraph:
         i_list = []
 
         #FIXME CLean this up when polished
-        DEBUG = True       
+        DEBUG = False       
         if DEBUG:
             for i in range(1000):
                 i_list.append(random.gauss(1,0.5))    
@@ -1108,14 +1108,12 @@ class egraph:
             self.g_title = "Folder undefined"
         self.g_ax.set_title(self.g_title)
 
-        #TODO bins should be a GUI parameter
-        #plt.hist(i_list, bins=500, facecolor='black', normed=1)
+        #Plot the graph
         self.g_ax.plot(self.x, self.z,'b', label='KDE', linewidth=3)
         self.g_ax.legend()
         self.g_ax.grid()
         self.canvas.show()
 
-        
     def plotGaussian(self):
         
         #Fetch the Gaussian parameters
@@ -1123,7 +1121,6 @@ class egraph:
         sigma1 = controller.gF_sigma1.get() 
         scale1 = controller.gF_scale1.get()
         ydisp2 = controller.gF_ydisp2.get()
-
         mu2 = controller.gF_mu2.get()
         sigma2 = controller.gF_sigma2.get() 
         scale2 = controller.gF_scale2.get()
@@ -1137,6 +1134,9 @@ class egraph:
         self.g_ax.plot(self.x, self.fit1, 'r-', label='Fit 1', linewidth=3)
         self.fit2 = mlab.normpdf( self.x, mu2, sigma2)*scale2 + ydisp2   
         self.g_ax.plot(self.x, self.fit2, 'g-', label='Fit 2', linewidth=3)
+
+        combo = self.fit1 + self.fit2
+        self.g_ax.plot(self.x, combo, 'k-', label='Combined Fit', linewidth=3)
         self.g_ax.legend()
 
         #Set some labels
