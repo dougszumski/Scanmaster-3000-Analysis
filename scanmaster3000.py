@@ -1108,15 +1108,9 @@ class egraph:
             self.g_title = "Folder undefined"
         self.g_ax.set_title(self.g_title)
 
-        #Set some labels
-        self.g_ax.text(self.g_xmin, self.g_ymin, "TEST WRITING", {'color' : 'g', 'fontsize' : 20})
-
         #TODO bins should be a GUI parameter
         #plt.hist(i_list, bins=500, facecolor='black', normed=1)
         self.g_ax.plot(self.x, self.z,'b', label='KDE', linewidth=3)
-        #plot_y_lim = ( max(z) ) * 1.1
-        #plot_y_lim = 0.12
-        # plt.axis([0, kde_stop, 0, plot_y_lim])
         self.g_ax.legend()
         self.g_ax.grid()
         self.canvas.show()
@@ -1124,6 +1118,7 @@ class egraph:
         
     def plotGaussian(self):
         
+        #Fetch the Gaussian parameters
         mu1 = controller.gF_mu1.get()
         sigma1 = controller.gF_sigma1.get() 
         scale1 = controller.gF_scale1.get()
@@ -1134,14 +1129,22 @@ class egraph:
         scale2 = controller.gF_scale2.get()
         ydisp1 = controller.gF_ydisp1.get()
         
+        #Clear axes and replot everything
         self.g_ax.cla() #TODO: Rather than clearing and replotting can you remove last previous plot??
         self.g_ax.grid()
         self.g_ax.plot(self.x, self.z,'b', label='KDE', linewidth=3)
         self.fit1 = mlab.normpdf( self.x, mu1, sigma1)*scale1 + ydisp1    
-        self.g_ax.plot(self.x, self.fit1, 'r--', label='Fit 1', linewidth=3)
+        self.g_ax.plot(self.x, self.fit1, 'r-', label='Fit 1', linewidth=3)
         self.fit2 = mlab.normpdf( self.x, mu2, sigma2)*scale2 + ydisp2   
-        self.g_ax.plot(self.x, self.fit2, 'g--', label='Fit 2', linewidth=3)
+        self.g_ax.plot(self.x, self.fit2, 'g-', label='Fit 2', linewidth=3)
         self.g_ax.legend()
+
+        #Set some labels
+        self.g_ax.text(self.g_xmin, self.g_ymax*0.95, r' $\mu_{1} = $' + str(mu1), {'color' : 'k', 'fontsize' : 18})
+        self.g_ax.text(self.g_xmin, self.g_ymax*0.90, r' $\sigma_{1} = $' + str(sigma1), {'color' : 'k', 'fontsize' : 18})
+        self.g_ax.text(self.g_xmin, self.g_ymax*0.85, r' $\mu_{2} = $' + str(mu2), {'color' : 'k', 'fontsize' : 18})
+        self.g_ax.text(self.g_xmin, self.g_ymax*0.80, r' $\sigma_{2} = $' + str(sigma2), {'color' : 'k', 'fontsize' : 18})
+
         #TODO: A lot of replication between here and confScanplot 
         #Plot KDE and histogram
         self.g_ax.set_xlabel('Log [Current (nA)]')
