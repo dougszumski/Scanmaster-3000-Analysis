@@ -1549,15 +1549,15 @@ class controller:
         self.PlotMenu = Menubutton(self.mBar, text='Plot', underline=0)
         self.PlotMenu.pack(side=LEFT, padx='2m')
         self.PlotMenu.menu = Menu(self.PlotMenu)
-        self.PlotMenu.menu.add_command(label='Logarithmic current histogram'
-                , underline=0, command=self.kde_plot)
+        self.PlotMenu.menu.add_command(label='Logarithmic current density plot'
+                , underline=0, command=self.kdePlot)
         self.PlotMenu.menu.add_command(label='Linear current histogram'
                 , underline=1, command=self.linear_data_plot)
         self.PlotMenu.menu.add_command(label='2D current-distance histogram'
                 , underline=1, command=contour_plot)
         self.PlotMenu.menu.add_command(label='2D correlation histogram'
                 , underline=1, command=correlationHist)
-        self.PlotMenu.menu.add_command(label='Embedded current histogram (Testing)'
+        self.PlotMenu.menu.add_command(label='Embedded logarithmic current density plot (testing)'
                 , underline=1, command=egraph.confScanPlot)
         self.PlotMenu['menu'] = self.PlotMenu.menu
 
@@ -1568,7 +1568,10 @@ class controller:
         self.ScanAnalysis.menu = Menu(self.ScanAnalysis)
         self.ScanAnalysis.menu.add_command(label='Read scans to memory'
                 , underline=0, background='grey', activebackground='red'
-                , command=self.readfiles)
+                , command=self.readFiles)
+        self.ScanAnalysis.menu.add_command(label='Automatically generate current density plots'
+                , underline=0, background='grey', activebackground='red'
+                , command=self.autoPlot)
         self.ScanAnalysis.menu.add_command(label='Sync scans in memory to plateau'
                 , underline=0, background='grey', activebackground='red'
                 , command=self.plat_syncer)
@@ -2628,7 +2631,7 @@ class controller:
             validate='all',
             textvariable=self.background_tol,
             )
-        self.ymin.grid(row=2, column=1)
+        self.ymin.grid(row=2, ceolumn=1)
 
         Label(self.plateau_fitting_frame,
               text='Maximum plateau gradient (A/m):').grid(row=3,
@@ -2664,7 +2667,7 @@ class controller:
               text='Maximum plateau deviation from the average:'
               ).grid(row=5, column=0, sticky=W)
         self.ybin = Spinbox(
-            self.plateau_fitting_frame,
+            self.plateau_fietting_frame,
             from_=0.00,
             to=10000.0,
             increment=0.01,
@@ -2675,7 +2678,7 @@ class controller:
             )
         self.ybin.grid(row=5, column=1)
 
-    def kde_plot(self):
+    def kdePlot(self, savefig=False):
 
         # Fetch KDE parameters from control widgets
         kde_bandwidth = self.kde_bandwidth.get()
@@ -2728,14 +2731,20 @@ class controller:
         plt.hist(i_list, bins=500, facecolor='black', normed=1)
         plt.plot(x, z,'b', label='KDE', linewidth=3)
         #plot_y_lim = ( max(z) ) * 1.1
-        #plot_y_lim = 0.12
-        # plt.axis([0, kde_stop, 0, plot_y_lim])
+        #TODO should be parameters in GUI
+        plot_y_lim = 0.4
+        plt.axis([-2, kde_stop, 0, plot_y_lim])
         plt.legend()
         plt.grid()
         plt.ylabel('Density', fontsize=14)
-        plt.xlabel('log_10[current (nanoamps)]', fontsize=14)
-        plt.title('Current density', fontsize=16)
-        plt.show()
+        plt.xlabel('log_10[current (nanoamps)]', fontsize=14)   
+        title = data.filename[0:string.rfind(data.filename, '/')]
+        plt.title(title, fontsize=16)
+        if savefig:
+            plt.savefig(title+".pdf", format='pdf')
+            plt.cla() 
+        else:
+            plt.show()
 
     def linear_data_plot(self):
 
@@ -2786,8 +2795,8 @@ class controller:
             finish = int(self.finvar.get())
         return start, finish
 
-    def readfiles(self):
-        """ READ in the I(s) scans, stitch together and correct the background """
+    def readFiles(self):
+        """ Read in the I(s) scans, stitch together and correct the background """
         start, finish = self.input_range()
         bcorfac = self.bcorfac.get()
         #Clear the current lists if you don't want to combine data sets
@@ -2795,6 +2804,28 @@ class controller:
             data.clear_current_lists()
         dat_input(start, finish, bcorfac)
         print 'End of file input'
+
+    def autoPlot(self):
+        """ Read in the I(s) scans in all "chopped" folders and plot graphs on fixed scale """ 
+        print "Automatically generating current density plots..."
+        contents = os.listdir(os.getcwd())
+        dirList = []
+        for item in contents:
+            if (len(item) >= 8) and (item[:7] == "chopped") and (item[-4:] != ".pdf"):
+                dirList.append(item)
+        for directory in dirList:
+            scans = os.listdir(os.path.abspath(directory))
+            if len(scans) == 0: return
+            data.filename = os.path.abspath(directory) + '/' + scans[0]
+            start, finish = self.input_range()
+            bcorfac = self.bcorfac.get()
+            #Clear the current lists if you don't want to combine data sets
+            if controller.clear_global_data.get() == 1:
+                data.clear_current_lists()
+            dat_input(start, finish, bcorfac)
+            print "Generating current density plot..."
+            self.kdePlot(True)
+        print "Automated plotting complete."
 
     def plat_syncer(self):
         """ Sync the I(s) scans to the start or end of a G0 plateau """
@@ -2806,7 +2837,7 @@ class controller:
         tea_break_maker()
    
 root = Tk()
-root.title('Scanmaster 3000 v0.55')
+root.title('Scanmaster 3000 v0.56')
 egraph = egraph(root)
 #Create the data container
 data = Data()
