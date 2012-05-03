@@ -116,7 +116,7 @@ class Data:
         self.s_dat_all_ls = []
         print "Current lists cleared"
         
-def scaninput(name):
+def scanInput(name):
 
     # Reads in the file, filename, reads number of measurements and then extracts I(s) data into lists
     # Read data from input file
@@ -148,7 +148,7 @@ def scaninput(name):
             position += data.interval
         return (i_dat_ls, i10_dat_ls, i_dat_hs, i10_dat_hs, s_dat_ls)
  
-def contour_plot():
+def contourPlot():
     """ Plots 2d histograms of current distance scans """
 
     # Generate list of all distances. This list will be the same length as the current list and therefore
@@ -418,7 +418,7 @@ def plat_seeker(current_trace):
     return (p_avg, p_loc, p_crd)
 
 
-def dat_input(start, finish, bcorfac):
+def datInput(start, finish, bcorfac):
 
     # Generates sequential filenames, currently in the format filenameXXXX.ivs where the number XXXX is set in the GUI.
     # For each filename it then calls scaninput (see above), corrects the current data for a background offset
@@ -438,7 +438,7 @@ def dat_input(start, finish, bcorfac):
         savedir = temp[string.rfind(temp, '/')+1:len(temp)]
         # Read in data from file
         (i_dat_ls, i10_dat_ls, i_dat_hs, i10_dat_hs, s_dat_ls) = \
-            scaninput(auto_name)
+            scanInput(auto_name)
         # Work out where to chop the channels whilst the data is stored as a voltage
         # Threshold set from the GUI: Normally these are 0.1V 
         th_1 = controller.th_1.get()
@@ -1285,12 +1285,17 @@ class controller:
         self.auto_read = IntVar()
         self.clear_global_data = IntVar()
 
-         # KDE
+        # Current Density plots
+        self.xmin_cd = DoubleVar()
+        self.xmax_cd = DoubleVar()
+        self.ymin_cd = DoubleVar()
+        self.ymax_cd = DoubleVar()
+        self.bins_cd = IntVar()
         self.kde_bandwidth = DoubleVar()
-        self.kde_stop = IntVar()
+        self.kde_stop = DoubleVar()
         self.kde_points = IntVar()
 
-         # Resistor division
+        # Resistor division
         self.lowres = DoubleVar()
         self.highres = DoubleVar()
         self.gainfactor = DoubleVar()
@@ -1388,8 +1393,13 @@ class controller:
             # Data filtering defaults:
             self.datfillogi.set(-1000)
 
-            # KDE stuff:
-            self.kde_bandwidth.set(0.1)
+            # Current density estimate plot:
+            self.xmin_cd.set(-2.0)
+            self.xmax_cd.set(5.0)
+            self.ymin_cd.set(0.0)
+            self.ymax_cd.set(0.4) # Current density estimate plot:
+            self.bins_cd.set(1000)
+            self.kde_bandwidth.set(0.10)
             self.kde_stop.set(4)
             self.kde_points.set(1000)
             
@@ -1471,6 +1481,11 @@ class controller:
             self.auto_read.set(data[ 'auto_read'])  
             self.clear_global_data.set(data[ 'clear_global_data'])  
             self.datfillogi.set(data[ 'datfillogi'])  
+            self.xmin_cd.set(data[ 'xmin_cd'])  
+            self.xmax_cd.set(data[ 'xmax_cd'])  
+            self.ymin_cd.set(data[ 'ymin_cd'])  
+            self.ymax_cd.set(data[ 'ymax_cd'])  
+            self.bins_cd.set(data[ 'bins_cd'])  
             self.kde_bandwidth.set(data[ 'kde_bandwidth'])  
             self.kde_stop.set(data[ 'kde_stop'])  
             self.kde_points.set(data[ 'kde_points'])  
@@ -1552,9 +1567,9 @@ class controller:
         self.PlotMenu.menu.add_command(label='Logarithmic current density plot'
                 , underline=0, command=self.kdePlot)
         self.PlotMenu.menu.add_command(label='Linear current histogram'
-                , underline=1, command=self.linear_data_plot)
+                , underline=1, command=self.linearPlot)
         self.PlotMenu.menu.add_command(label='2D current-distance histogram'
-                , underline=1, command=contour_plot)
+                , underline=1, command=contourPlot)
         self.PlotMenu.menu.add_command(label='2D correlation histogram'
                 , underline=1, command=correlationHist)
         self.PlotMenu.menu.add_command(label='Embedded logarithmic current density plot (testing)'
@@ -1626,11 +1641,11 @@ class controller:
                 underline=0, command=self.data_filter)
         self.SettingsMenu.menu.add_command(label='STM / ADC configuration'
                 , underline=0, command=self.adc_params)
-        self.SettingsMenu.menu.add_command(label='2D histogram plotting'
+        self.SettingsMenu.menu.add_command(label='2D histogram'
                 , underline=0, command=self.contour_params)
         self.SettingsMenu.menu.add_command(label='2D correlation histogram'
                 , underline=0, command=self.correlation_params)
-        self.SettingsMenu.menu.add_command(label='KDE plotting',
+        self.SettingsMenu.menu.add_command(label='Current density histogram',
                 underline=0, command=self.kde_params)
         self.SettingsMenu.menu.add_command(label='Gaussian fitting',
                 underline=0, command=self.gaussian_params)
@@ -1669,6 +1684,11 @@ class controller:
                 'auto_read' : self.auto_read.get(),
                 'clear_global_data' : self.clear_global_data.get(),
                 'datfillogi' : self.datfillogi.get(),
+                'xmin_cd' : self.xmin_cd.get(),
+                'xmax_cd' : self.xmax_cd.get(),
+                'ymin_cd' : self.ymin_cd.get(),
+                'ymax_cd' : self.xmax_cd.get(),
+                'bins_cd' : self.bins_cd.get(),
                 'kde_bandwidth' : self.kde_bandwidth.get(),
                 'kde_stop' : self.kde_stop.get(),
                 'kde_points' : self.kde_points.get(),
@@ -1944,51 +1964,132 @@ class controller:
 
         # Configure the KDE parameters in a new window
         self.kde_params = Toplevel()
-        self.kde_params.title('KDE parameters')
+        self.kde_params.title('Current density plot')
 
         # Put the parameters in a frame
         self.kde_frame = Frame(self.kde_params)
         self.kde_frame.pack(side=TOP, pady=5)
 
-        # KDE parameters
-        Scale(
+        Label(self.kde_frame, text='Plot dimensions:', pady=10).grid(row=0,
+                column=0, sticky=W)
+
+        Label(self.kde_frame, text='x-axis minimum:').grid(row=1,
+                column=0, sticky=W)
+        self.xmin = Spinbox(
             self.kde_frame,
-            label='KDE bandwidth:',
-            variable=self.kde_bandwidth,
+            from_=-100000,
+            to=100000,
+            increment=0.1,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.xmin_cd,
+            )
+        self.xmin.grid(row=1, column=1)
+
+        Label(self.kde_frame, text='x-axis maximum:').grid(row=2,
+                column=0, sticky=W)
+        self.xmax = Spinbox(
+            self.kde_frame,
             from_=0,
-            to=1,
-            resolution=0.01,
-            length=280,
-            tickinterval=0,
-            showvalue=YES,
-            orient='horizontal',
-            ).pack()
+            to=100000,
+            increment=0.1,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.xmax_cd,
+            )
+        self.xmax.grid(row=2, column=1)
 
-        Scale(
+        Label(self.kde_frame, text='y-axis minimum:').grid(row=3,
+                column=0, sticky=W)
+        self.ymin = Spinbox(
             self.kde_frame,
-            label='KDE fit stop:',
-            variable=self.kde_stop,
-            from_=1,
-            to=50,
-            resolution=1,
-            length=280,
-            tickinterval=0,
-            showvalue=YES,
-            orient='horizontal',
-            ).pack()
+            from_=-10,
+            to=10,
+            increment=0.01,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.ymin_cd,
+            )
+        self.ymin.grid(row=3, column=1)
 
-        Scale(
+        Label(self.kde_frame, text='y-axis maximum:').grid(row=4,
+                column=0, sticky=W)
+        self.ymax = Spinbox(
             self.kde_frame,
-            label='KDE points:',
-            variable=self.kde_points,
+            from_=-10,
+            to=10,
+            increment=0.01,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.ymax_cd,
+            )
+        self.ymax.grid(row=4, column=1)
+
+        Label(self.kde_frame, text='Histogram parameters:', pady=10).grid(row=5,
+                column=0, sticky=W)
+
+        Label(self.kde_frame, text='Bin count:').grid(row=6,
+                column=0, sticky=W)
+        self.xbin = Spinbox(
+            self.kde_frame,
             from_=0,
             to=1000,
-            resolution=50,
-            length=280,
-            tickinterval=0,
-            showvalue=YES,
-            orient='horizontal',
-            ).pack()
+            increment=1,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.bins_cd,
+            )
+        self.xbin.grid(row=6, column=1)
+
+        Label(self.kde_frame, text='KDE parameters:', pady=10).grid(row=7,
+                column=0, sticky=W)
+    
+        Label(self.kde_frame, text='Bandwidth:').grid(row=8,
+                column=0, sticky=W)
+        self.bandwidth = Spinbox(
+            self.kde_frame,
+            from_=-10,
+            to=10,
+            increment=0.1,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.kde_bandwidth,
+            )
+        self.bandwidth.grid(row=8, column=1)
+
+        Label(self.kde_frame, text='Stop position:').grid(row=9,
+                column=0, sticky=W)
+        self.stop = Spinbox(
+            self.kde_frame,
+            from_=-10,
+            to=10,
+            increment=0.01,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.kde_stop,
+            )
+        self.stop.grid(row=9, column=1)
+
+        Label(self.kde_frame, text='Points:').grid(row=10,
+                column=0, sticky=W)
+        self.points = Spinbox(
+            self.kde_frame,
+            from_=0,
+            to=1000,
+            increment=1,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.kde_points,
+            )
+        self.points.grid(row=10, column=1)
 
     def data_filter(self):
 
@@ -2681,13 +2782,17 @@ class controller:
     def kdePlot(self, savefig=False):
 
         # Fetch KDE parameters from control widgets
+        xmin = self.xmin_cd.get()
+        xmax = self.xmax_cd.get()
+        ymin = self.ymin_cd.get()
+        ymax = self.ymax_cd.get()
+        bins = self.bins_cd.get()
         kde_bandwidth = self.kde_bandwidth.get()
         kde_start = kde_bandwidth  # The lowest the KDE start can go
         kde_stop = self.kde_stop.get()
         kde_points = self.kde_points.get()
 
         # Plot KDE function and read all current data to a single list
-        # Initialse current list and append currents from individual files
         i_list = []
         for reading in data.i_dat_all_combined:
             for value in reading:
@@ -2697,15 +2802,14 @@ class controller:
                 #This has the effect of vastly reducing the background peak!
                 if value > 0:
                     i_list.append(np.log10(value))
-
         print 'Lists appended, found:', len(i_list), 'data points.'
 
+        #Check that some data is in memory before attempting to plot
         if (len(i_list) < 1):
             self.error = showerror('Error', 'No data in memory')
             return
         
         #This bit is experimental -- plot 5 KDES as a function of scan number
-
         #numScans = len(data.i_dat_all_combined)    
         #if numScans > 100:
             #Make some current lists
@@ -2719,21 +2823,15 @@ class controller:
         #    scansPerList = numScans / scanLists
 
         #Fit KDE and setup plot
-        #Scrap the optimal bandwidth for now.. does it make sense on log scale?
+        #FIXME: Scrap the optimal bandwidth for now.. does it make sense on log scale?
         #haa = statistics.bandwidth(i_list, kernel='Epanechnikov')
         #bandwidth = haa /2
         #print "Optimal bandwidth:", haa
         x = np.linspace(min(i_list),max(i_list),kde_points)
         z = statistics.pdf(i_list, x, h=kde_bandwidth, kernel='E')
-        
-        #Plot KDE and histogram
-        #TODO bins should be a GUI parameter
-        plt.hist(i_list, bins=500, facecolor='black', normed=1)
+        plt.hist(i_list, bins=bins, facecolor='black', normed=1)
         plt.plot(x, z,'b', label='KDE', linewidth=3)
-        #plot_y_lim = ( max(z) ) * 1.1
-        #TODO should be parameters in GUI
-        plot_y_lim = 0.4
-        plt.axis([-2, kde_stop, 0, plot_y_lim])
+        plt.axis([xmin, xmax, ymin, ymax])
         plt.legend()
         plt.grid()
         plt.ylabel('Density', fontsize=14)
@@ -2746,7 +2844,7 @@ class controller:
         else:
             plt.show()
 
-    def linear_data_plot(self):
+    def linearPlot(self):
 
         # Fetch KDE parameters from control widgets
         i_list = []
@@ -2768,7 +2866,7 @@ class controller:
         plt.xlabel('current (nanoamps)', fontsize=14)
         plt.show()
 
-    def input_range(self):
+    def inputRange(self):
         """Returns the start/finish numbers for the I(s) scans to read in"""
         if (len(data.filename) < 1):
             self.error = showerror('Error', 'Input folder not defined')
@@ -2797,12 +2895,12 @@ class controller:
 
     def readFiles(self):
         """ Read in the I(s) scans, stitch together and correct the background """
-        start, finish = self.input_range()
+        start, finish = self.inputRange()
         bcorfac = self.bcorfac.get()
         #Clear the current lists if you don't want to combine data sets
         if controller.clear_global_data.get() == 1:
             data.clear_current_lists()
-        dat_input(start, finish, bcorfac)
+        datInput(start, finish, bcorfac)
         print 'End of file input'
 
     def autoPlot(self):
@@ -2817,19 +2915,19 @@ class controller:
             scans = os.listdir(os.path.abspath(directory))
             if len(scans) == 0: return
             data.filename = os.path.abspath(directory) + '/' + scans[0]
-            start, finish = self.input_range()
+            start, finish = self.inputRange()
             bcorfac = self.bcorfac.get()
             #Clear the current lists if you don't want to combine data sets
             if controller.clear_global_data.get() == 1:
                 data.clear_current_lists()
-            dat_input(start, finish, bcorfac)
+            datInput(start, finish, bcorfac)
             print "Generating current density plot..."
             self.kdePlot(True)
         print "Automated plotting complete."
 
     def plat_syncer(self):
         """ Sync the I(s) scans to the start or end of a G0 plateau """
-        start, finish = self.input_range()
+        start, finish = self.inputRange()
         plat_sync(start, finish)
 
     def importdata(self):
@@ -2837,7 +2935,7 @@ class controller:
         tea_break_maker()
    
 root = Tk()
-root.title('Scanmaster 3000 v0.56')
+root.title('Scanmaster 3000 v0.57')
 egraph = egraph(root)
 #Create the data container
 data = Data()
