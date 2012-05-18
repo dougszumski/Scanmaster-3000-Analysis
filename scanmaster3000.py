@@ -23,7 +23,6 @@
 #For push access contact Doug
 
 # For embedded graph:
-
 import matplotlib
 matplotlib.use('TkAgg')
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, \
@@ -33,12 +32,10 @@ import sys
 from matplotlib.colors import LogNorm
 
 #Multithreading support
-
 import threading
 from Queue import Queue
 
 # Dialogue
-
 from Tkinter import *
 from tkFileDialog import askopenfilename, asksaveasfile
 from tkColorChooser import askcolor
@@ -47,9 +44,9 @@ from tkSimpleDialog import askfloat
 from tkMessageBox import askokcancel
 from FileDialog import LoadFileDialog
 from Dialog import Dialog
+import signal
 
 # File IO
-
 import shutil  # High level file from scipy import stats
 import os  # import command line for file operations
 from subprocess import call
@@ -58,7 +55,6 @@ import cPickle
 import gzip
 
 # Plotting stuff
-
 import numpy as np
 from scipy import stats as sci_stats
 import matplotlib.pylab as plt
@@ -76,7 +72,6 @@ import random
 import time
 
 # Retro Fortran modules -- recompile using: f2py -c -m plat_seek plat_seek8.f90 etc..
-
 import plat_seek
 
 class Data:
@@ -1252,6 +1247,9 @@ class controller:
 
     # This generates the main GUI and contains all variables the use can modify
     def __init__(self, myParent):
+
+        #Use an interrupt to terminate the script on Ctrl+C
+        signal.signal(signal.SIGINT, self.signal_handler)
     
         #Save the root path of the gui
         root_path = os.getcwd() 
@@ -1674,7 +1672,11 @@ class controller:
                 , underline=0, background='grey', activebackground='red'
                 , command=self.saveData)
         self.SettingsMenu['menu'] = self.SettingsMenu.menu
-
+    
+    def signal_handler(self, signal, frame):
+        print '\nKeyboard interrupt; terminating program immediately!'
+        sys.exit(0)
+    
     def saveData(self):
 
         # Pickle a dictionary containing variables to be saved
