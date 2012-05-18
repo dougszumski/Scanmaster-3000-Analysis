@@ -1294,6 +1294,10 @@ class controller:
         self.kde_bandwidth = DoubleVar()
         self.kde_stop = DoubleVar()
         self.kde_points = IntVar()
+        self.kdePeakLabel = IntVar()
+        self.kdePeakStart = DoubleVar()
+        self.kdePeakStop = DoubleVar()
+        
 
         # Resistor division
         self.lowres = DoubleVar()
@@ -1402,7 +1406,10 @@ class controller:
             self.kde_bandwidth.set(0.10)
             self.kde_stop.set(4)
             self.kde_points.set(1000)
-            
+            self.kdePeakLabel.set(1)
+            self.kdePeakStart.set(0.0)
+            self.kdePeakStop.set(1.5)         
+
             # STM/ADC parameters used for reconstructing distance defaults
             self.sampsec.set(10000)
             self.srange.set(6)
@@ -1410,11 +1417,11 @@ class controller:
 
             # Contour plot parameter defaults
             self.xmin_contour.set(0.00)
-            self.xmax_contour.set(5.0)
-            self.ymin_contour.set(-4.0)
-            self.ymax_contour.set(4.0)
-            self.xbin_contour.set(100)
-            self.ybin_contour.set(100)
+            self.xmax_contour.set(3.0)
+            self.ymin_contour.set(-2.0)
+            self.ymax_contour.set(5.0)
+            self.xbin_contour.set(250)
+            self.ybin_contour.set(250)
 
             #Gaussian fit parameters - defaults to TMB/Au/100mV
             self.gF_mu1.set(0.12)
@@ -1436,7 +1443,7 @@ class controller:
 
             # 2D Correlation plot parameter defaults
             self.corrcurrentmin.set(-1.0)
-            self.corrcurrentmax.set(4.0)
+            self.corrcurrentmax.set(5.0)
             self.corrbins.set(300)
             self.corrlogscale.set(1)
 
@@ -1459,76 +1466,83 @@ class controller:
         else:
             print "Loading custom settings from file 'settings'."
             data = self.restoreData()
-            
-            #Now set all the variables. See the defaults section above for what they are
-            #TODO: This could be done in a 'cleaner way' by iterating over the variable dicionary returned by saveData()
-            self.lowres.set(data[ 'lowres'])  
-            self.highres.set(data[ 'highres'])  
-            self.gainfactor.set(data[ 'gainfactor'])
-            self.th_1.set(data[ 'th_1'])  
-            self.th_2.set(data[ 'th_2']) 
-            self.th_3.set(data[ 'th_3']) 
-            self.stavar.set(data[ 'stavar'])  
-            self.finvar.set(data[ 'finvar'])  
-            self.bcorfac.set(data[ 'bcorfac'])  
-            self.xfac.set(data[ 'xfac'])  
-            self.yfac.set(data[ 'yfac'])  
-            self.offset.set(data[ 'offset'])  
-            self.currentScaleFactor.set(data[ 'currentScaleFactor'])
-            self.plot_dat.set(data[ 'plot_dat'])  
-            self.check_dat.set(data[ 'check_dat'])  
-            self.check_dat2.set(data[ 'check_dat2'])  
-            self.auto_read.set(data[ 'auto_read'])  
-            self.clear_global_data.set(data[ 'clear_global_data'])  
-            self.datfillogi.set(data[ 'datfillogi'])  
-            self.xmin_cd.set(data[ 'xmin_cd'])  
-            self.xmax_cd.set(data[ 'xmax_cd'])  
-            self.ymin_cd.set(data[ 'ymin_cd'])  
-            self.ymax_cd.set(data[ 'ymax_cd'])  
-            self.bins_cd.set(data[ 'bins_cd'])  
-            self.kde_bandwidth.set(data[ 'kde_bandwidth'])  
-            self.kde_stop.set(data[ 'kde_stop'])  
-            self.kde_points.set(data[ 'kde_points'])  
-            self.sampsec.set(data[ 'sampsec'])  
-            self.srange.set(data[ 'srange'])  
-            self.sduration.set(data[ 'sduration'])  
-            self.xmin_contour.set(data[ 'xmin_contour'])  
-            self.xmax_contour.set(data[ 'xmax_contour'])  
-            self.ymin_contour.set(data[ 'ymin_contour'])  
-            self.ymax_contour.set(data[ 'ymax_contour'])  
-            self.xbin_contour.set(data[ 'xbin_contour'])  
-            self.ybin_contour.set(data[ 'ybin_contour'])  
-            self.gF_mu1.set(data['gF_mu1'])
-            self.gF_sigma1.set(data['gF_sigma1'])
-            self.gF_scale1.set(data['gF_scale1'])
-            self.gF_ydisp1.set(data['gF_ydisp1'])
-            self.gF_mu2.set(data['gF_mu2'])
-            self.gF_sigma2.set(data['gF_sigma2'])
-            self.gF_scale2.set(data['gF_scale2'])
-            self.gF_ydisp2.set(data['gF_ydisp2'])
-            self.gF_mu3.set(data['gF_mu3'])
-            self.gF_sigma3.set(data['gF_sigma3'])
-            self.gF_scale3.set(data['gF_scale3'])
-            self.gF_ydisp3.set(data['gF_ydisp3'])
-            self.gF_xmin.set(data['gF_xmin'])
-            self.gF_xmax.set(data['gF_xmax'])
-            self.gF_ymin.set(data['gF_ymin'])
-            self.gF_ymax.set(data['gF_ymax'])
-            self.corrcurrentmin.set(data[ 'corrcurrentmin'])
-            self.corrcurrentmax.set(data[ 'corrcurrentmax'])
-            self.corrbins.set(data[ 'corrbins'])
-            self.corrlogscale.set(data[ 'corrlogscale'])
-            self.plat_max_grad.set(data[ 'plat_max_grad'])  
-            self.background_tol.set(data[ 'background_tol'])  
-            self.max_plat_cur.set(data[ 'max_plat_cur'])  
-            self.max_points_plat.set(data[ 'max_points_plat'])  
-            self.fractional_plat_tol.set(data[ 'fractional_plat_tol'])  
-            self.min_points_plat.set(data[ 'min_points_plat'])  
-            self.scan_u_th.set(data[ 'scan_u_th'])  
-            self.scan_l_th.set(data[ 'scan_l_th'])  
-            self.chunksize.set(data[ 'chunksize'])  
-            self.max_seg_len.set(data[ 'max_seg_len'])  
-            self.min_seg_len.set(data[ 'min_seg_len'])  
+            try:
+                #Now set all the variables. See the defaults section above for what they are
+                #TODO: This could be done in a 'cleaner way' by iterating over the variable dicionary returned by saveData()
+                self.lowres.set(data[ 'lowres'])  
+                self.highres.set(data[ 'highres'])  
+                self.gainfactor.set(data[ 'gainfactor'])
+                self.th_1.set(data[ 'th_1'])  
+                self.th_2.set(data[ 'th_2']) 
+                self.th_3.set(data[ 'th_3']) 
+                self.stavar.set(data[ 'stavar'])  
+                self.finvar.set(data[ 'finvar'])  
+                self.bcorfac.set(data[ 'bcorfac'])  
+                self.xfac.set(data[ 'xfac'])  
+                self.yfac.set(data[ 'yfac'])  
+                self.offset.set(data[ 'offset'])  
+                self.currentScaleFactor.set(data[ 'currentScaleFactor'])
+                self.plot_dat.set(data[ 'plot_dat'])  
+                self.check_dat.set(data[ 'check_dat'])  
+                self.check_dat2.set(data[ 'check_dat2'])  
+                self.auto_read.set(data[ 'auto_read'])  
+                self.clear_global_data.set(data[ 'clear_global_data'])  
+                self.datfillogi.set(data[ 'datfillogi'])  
+                self.xmin_cd.set(data[ 'xmin_cd'])  
+                self.xmax_cd.set(data[ 'xmax_cd'])  
+                self.ymin_cd.set(data[ 'ymin_cd'])  
+                self.ymax_cd.set(data[ 'ymax_cd'])  
+                self.bins_cd.set(data[ 'bins_cd'])  
+                self.kde_bandwidth.set(data[ 'kde_bandwidth'])  
+                self.kde_stop.set(data[ 'kde_stop'])  
+                self.kde_points.set(data[ 'kde_points'])  
+                self.kdePeakLabel.set(data[ 'kdePeakLabel']) 
+                self.kdePeakStart.set(data[ 'kdePeakStart']) 
+                self.kdePeakStop.set(data[ 'kdePeakStop'])  
+                self.sampsec.set(data[ 'sampsec'])  
+                self.srange.set(data[ 'srange'])  
+                self.sduration.set(data[ 'sduration'])  
+                self.xmin_contour.set(data[ 'xmin_contour'])  
+                self.xmax_contour.set(data[ 'xmax_contour'])  
+                self.ymin_contour.set(data[ 'ymin_contour'])  
+                self.ymax_contour.set(data[ 'ymax_contour'])  
+                self.xbin_contour.set(data[ 'xbin_contour'])  
+                self.ybin_contour.set(data[ 'ybin_contour'])  
+                self.gF_mu1.set(data['gF_mu1'])
+                self.gF_sigma1.set(data['gF_sigma1'])
+                self.gF_scale1.set(data['gF_scale1'])
+                self.gF_ydisp1.set(data['gF_ydisp1'])
+                self.gF_mu2.set(data['gF_mu2'])
+                self.gF_sigma2.set(data['gF_sigma2'])
+                self.gF_scale2.set(data['gF_scale2'])
+                self.gF_ydisp2.set(data['gF_ydisp2'])
+                self.gF_mu3.set(data['gF_mu3'])
+                self.gF_sigma3.set(data['gF_sigma3'])
+                self.gF_scale3.set(data['gF_scale3'])
+                self.gF_ydisp3.set(data['gF_ydisp3'])
+                self.gF_xmin.set(data['gF_xmin'])
+                self.gF_xmax.set(data['gF_xmax'])
+                self.gF_ymin.set(data['gF_ymin'])
+                self.gF_ymax.set(data['gF_ymax'])
+                self.corrcurrentmin.set(data[ 'corrcurrentmin'])
+                self.corrcurrentmax.set(data[ 'corrcurrentmax'])
+                self.corrbins.set(data[ 'corrbins'])
+                self.corrlogscale.set(data[ 'corrlogscale'])
+                self.plat_max_grad.set(data[ 'plat_max_grad'])  
+                self.background_tol.set(data[ 'background_tol'])  
+                self.max_plat_cur.set(data[ 'max_plat_cur'])  
+                self.max_points_plat.set(data[ 'max_points_plat'])  
+                self.fractional_plat_tol.set(data[ 'fractional_plat_tol'])  
+                self.min_points_plat.set(data[ 'min_points_plat'])  
+                self.scan_u_th.set(data[ 'scan_u_th'])  
+                self.scan_l_th.set(data[ 'scan_l_th'])  
+                self.chunksize.set(data[ 'chunksize'])  
+                self.max_seg_len.set(data[ 'max_seg_len'])  
+                self.min_seg_len.set(data[ 'min_seg_len'])  
+            except KeyError:
+                print "ERROR: Settings file incomplete."
+                print "You are probably using a new version of the script with an"
+                print "old settings file. Delete and recreate the settings file."
 
         #Trace the relevant variables for dynamic updating of embedded plot
         #name is name of tk var, index if var i an array, otherwise empty string, 
@@ -1692,6 +1706,9 @@ class controller:
                 'kde_bandwidth' : self.kde_bandwidth.get(),
                 'kde_stop' : self.kde_stop.get(),
                 'kde_points' : self.kde_points.get(),
+                'kdePeakLabel' : self.kdePeakLabel.get(),
+                'kdePeakStart' : self.kdePeakStart.get(),
+                'kdePeakStop' : self.kdePeakStop.get(),
                 'sampsec' : self.sampsec.get(),
                 'srange' : self.srange.get(),
                 'sduration' : self.sduration.get(),
@@ -2090,6 +2107,42 @@ class controller:
             textvariable=self.kde_points,
             )
         self.points.grid(row=10, column=1)
+
+        Label(self.kde_frame, text='KDE auto peak maximum labelling:', pady=10).grid(row=11,
+                column=0, sticky=W)
+
+        Label(self.kde_frame, text='Attempt to auto label peak maximum:').grid(row=12,
+                column=0, sticky=W)
+        self.peakMax = Checkbutton(self.kde_frame, variable=self.kdePeakLabel)
+        self.peakMax.grid(row=12, column=1)
+
+        Label(self.kde_frame, text='Label minimum (log10[nA]):').grid(row=13,
+                column=0, sticky=W)
+        self.peakStart = Spinbox(
+            self.kde_frame,
+            from_=-10,
+            to=10,
+            increment=0.01,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.kdePeakStart,
+            )
+        self.peakStart.grid(row=13, column=1)
+
+        Label(self.kde_frame, text='Label maximum (log10[nA]):').grid(row=14,
+                column=0, sticky=W)
+        self.peakStop = Spinbox(
+            self.kde_frame,
+            from_=-10,
+            to=10,
+            increment=0.01,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.kdePeakStop,
+            )
+        self.peakStop.grid(row=14, column=1)
 
     def data_filter(self):
 
@@ -2732,7 +2785,7 @@ class controller:
             validate='all',
             textvariable=self.background_tol,
             )
-        self.ymin.grid(row=2, ceolumn=1)
+        self.ymin.grid(row=2, column=1)
 
         Label(self.plateau_fitting_frame,
               text='Maximum plateau gradient (A/m):').grid(row=3,
@@ -2768,7 +2821,7 @@ class controller:
               text='Maximum plateau deviation from the average:'
               ).grid(row=5, column=0, sticky=W)
         self.ybin = Spinbox(
-            self.plateau_fietting_frame,
+            self.plateau_fitting_frame,
             from_=0.00,
             to=10000.0,
             increment=0.01,
@@ -2829,13 +2882,38 @@ class controller:
         #print "Optimal bandwidth:", haa
         x = np.linspace(min(i_list),max(i_list),kde_points)
         z = statistics.pdf(i_list, x, h=kde_bandwidth, kernel='E')
+       
+        #Autolabelling of the KDE peak maximum in a certain window. 
+        #Crude, but works well for some molecules as a first pass estimate
+        if self.kdePeakLabel.get():
+            flag = False
+            flag2 = False
+            for i in range(len(x)):
+                if (x[i] > self.kdePeakStart.get()) and (flag == False):
+                    sliceStart = i
+                    flag = True
+                if (x[i] > self.kdePeakStop.get()) and (flag2 ==False):
+                    sliceEnd = i 
+                    flag2 = True
+            zSS = z[sliceStart:sliceEnd]
+            xSS = x[sliceStart:sliceEnd]
+            print zSS.argmax(), xSS[zSS.argmax()]
+            HC = xSS[zSS.argmax()]
+  
+        #Setup plot
         plt.hist(i_list, bins=bins, facecolor='black', normed=1)
         plt.plot(x, z,'b', label='KDE', linewidth=3)
         plt.axis([xmin, xmax, ymin, ymax])
         plt.legend()
         plt.grid()
         plt.ylabel('Density', fontsize=14)
-        plt.xlabel('log_10[current (nanoamps)]', fontsize=14)   
+        plt.xlabel('log_10[current (nanoamps)]', fontsize=14)       
+        if self.kdePeakLabel.get():
+            plt.annotate(str(HC)[0:5], (HC, max(zSS)*1.2),
+                xytext=(0.5, 0.5), textcoords='axes fraction',
+                arrowprops=dict(facecolor='blue', shrink=0.05),
+                fontsize=14,
+                horizontalalignment='right', verticalalignment='top')
         title = data.filename[0:string.rfind(data.filename, '/')]
         plt.title(title, fontsize=16)
         if savefig:
@@ -2935,7 +3013,7 @@ class controller:
         tea_break_maker()
    
 root = Tk()
-root.title('Scanmaster 3000 v0.57')
+root.title('Scanmaster 3000 v0.58')
 egraph = egraph(root)
 #Create the data container
 data = Data()
