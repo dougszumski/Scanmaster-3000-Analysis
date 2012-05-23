@@ -1674,7 +1674,7 @@ class controller:
         self.SettingsMenu['menu'] = self.SettingsMenu.menu
     
     def signal_handler(self, signal, frame):
-        print '\nKeyboard interrupt; terminating program immediately!'
+        print '\nKeyboard interrupt; terminating immediately!'
         sys.exit(0)
     
     def saveData(self):
@@ -1897,7 +1897,7 @@ class controller:
         Spinbox(
             self.resistance_frame,
             from_=0,
-            to=1000000000,
+            to=100000000000,
             increment=1,
             width=10,
             wrap=True,
@@ -1911,7 +1911,7 @@ class controller:
         Spinbox(
             self.resistance_frame,
             from_=0,
-            to=1000000000,
+            to=100000000000,
             increment=1,
             width=10,
             wrap=True,
