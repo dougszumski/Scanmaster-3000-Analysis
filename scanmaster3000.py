@@ -1125,6 +1125,10 @@ class egraph:
         sigma3 = controller.gF_sigma3.get() 
         scale3 = controller.gF_scale3.get()
         ydisp3 = controller.gF_ydisp3.get()
+        mu4 = controller.gF_mu4.get()
+        sigma4 = controller.gF_sigma4.get() 
+        scale4 = controller.gF_scale4.get()
+        ydisp4 = controller.gF_ydisp4.get()
         
         #Clear axes and replot everything
         self.g_ax.cla() #TODO: Rather than clearing and replotting can you remove last previous plot??
@@ -1136,8 +1140,10 @@ class egraph:
         self.g_ax.plot(self.x, self.fit2, 'g-', label='Fit 2', linewidth=2)
         self.fit3 = mlab.normpdf( self.x, mu3, sigma3)*scale3 + ydisp3   
         self.g_ax.plot(self.x, self.fit3, 'c-', label='Fit 3', linewidth=2)
+        self.fit4 = mlab.normpdf( self.x, mu4, sigma4)*scale4 + ydisp4   
+        self.g_ax.plot(self.x, self.fit4, 'm-', label='Fit 4', linewidth=2)
 
-        combo = self.fit1 + self.fit2 + self.fit3
+        combo = self.fit1 + self.fit2 + self.fit3 + self.fit4
         self.g_ax.plot(self.x, combo, 'k-', label='Combined Fit', linewidth=3)
         self.g_ax.legend()
 
@@ -1149,6 +1155,8 @@ class egraph:
         self.g_ax.text(self.g_xmin, self.g_ymax*0.75, r' $\sigma_{2} = $' + str(sigma2), {'color' : 'k', 'fontsize' : 16})
         self.g_ax.text(self.g_xmin, self.g_ymax*0.70, r' $\mu_{3} = $' + str(mu3), {'color' : 'k', 'fontsize' : 16})
         self.g_ax.text(self.g_xmin, self.g_ymax*0.65, r' $\sigma_{3} = $' + str(sigma3), {'color' : 'k', 'fontsize' : 16})
+        self.g_ax.text(self.g_xmin, self.g_ymax*0.60, r' $\mu_{4} = $' + str(mu4), {'color' : 'k', 'fontsize' : 16})
+        self.g_ax.text(self.g_xmin, self.g_ymax*0.55, r' $\sigma_{4} = $' + str(sigma4), {'color' : 'k', 'fontsize' : 16})
         
         #TODO: A lot of replication between here and confScanplot 
         #Plot KDE and histogram
@@ -1333,6 +1341,10 @@ class controller:
         self.gF_sigma3 = DoubleVar() 
         self.gF_scale3 = DoubleVar()
         self.gF_ydisp3 = DoubleVar()
+        self.gF_mu4 = DoubleVar()
+        self.gF_sigma4 = DoubleVar() 
+        self.gF_scale4 = DoubleVar()
+        self.gF_ydisp4 = DoubleVar()
         self.gF_xmin = DoubleVar()
         self.gF_xmax = DoubleVar()
         self.gF_ymin = DoubleVar()
@@ -1422,18 +1434,22 @@ class controller:
             self.ybin_contour.set(250)
 
             #Gaussian fit parameters - defaults to TMB/Au/100mV
-            self.gF_mu1.set(0.12)
-            self.gF_sigma1.set(0.19)
-            self.gF_scale1.set(0.019)
+            self.gF_mu1.set(0.135)
+            self.gF_sigma1.set(0.22)
+            self.gF_scale1.set(0.023)
             self.gF_ydisp1.set(0.00)
-            self.gF_mu2.set(0.66)
-            self.gF_sigma2.set(0.19)
-            self.gF_scale2.set(0.033)
+            self.gF_mu2.set(0.67)
+            self.gF_sigma2.set(0.17)
+            self.gF_scale2.set(0.0285)
             self.gF_ydisp2.set(0.00)
-            self.gF_mu3.set(1.05)
-            self.gF_sigma3.set(0.20)
-            self.gF_scale3.set(0.031)
+            self.gF_mu3.set(0.96)
+            self.gF_sigma3.set(0.17)
+            self.gF_scale3.set(0.0175)
             self.gF_ydisp3.set(0.00)
+            self.gF_mu4.set(1.14)
+            self.gF_sigma4.set(0.17)
+            self.gF_scale4.set(0.0145)
+            self.gF_ydisp4.set(0.00)
             self.gF_xmin.set(-1.0)
             self.gF_xmax.set(5.0)
             self.gF_ymin.set(0.0)
@@ -1518,6 +1534,10 @@ class controller:
                 self.gF_sigma3.set(data['gF_sigma3'])
                 self.gF_scale3.set(data['gF_scale3'])
                 self.gF_ydisp3.set(data['gF_ydisp3'])
+                self.gF_mu4.set(data['gF_mu4'])
+                self.gF_sigma4.set(data['gF_sigma4'])
+                self.gF_scale4.set(data['gF_scale4'])
+                self.gF_ydisp4.set(data['gF_ydisp4'])
                 self.gF_xmin.set(data['gF_xmin'])
                 self.gF_xmax.set(data['gF_xmax'])
                 self.gF_ymin.set(data['gF_ymin'])
@@ -1547,15 +1567,19 @@ class controller:
         self.gF_mu1.trace("w", lambda name, index, mode, gF_mu1=self.gF_mu1: callback(gF_mu1))
         self.gF_mu2.trace("w", lambda name, index, mode, gF_mu2=self.gF_mu2: callback(gF_mu2))
         self.gF_mu3.trace("w", lambda name, index, mode, gF_mu3=self.gF_mu3: callback(gF_mu3))
+        self.gF_mu4.trace("w", lambda name, index, mode, gF_mu4=self.gF_mu4: callback(gF_mu4))
         self.gF_sigma1.trace("w", lambda name, index, mode, gF_sigma1=self.gF_sigma1: callback(gF_sigma1))
         self.gF_sigma2.trace("w", lambda name, index, mode, gF_sigma2=self.gF_sigma2: callback(gF_sigma2))
         self.gF_sigma3.trace("w", lambda name, index, mode, gF_sigma3=self.gF_sigma3: callback(gF_sigma3))
+        self.gF_sigma4.trace("w", lambda name, index, mode, gF_sigma4=self.gF_sigma4: callback(gF_sigma4))
         self.gF_scale1.trace("w", lambda name, index, mode, gF_scale1=self.gF_scale1: callback(gF_scale1))
         self.gF_scale2.trace("w", lambda name, index, mode, gF_scale2=self.gF_scale2: callback(gF_scale2))
         self.gF_scale3.trace("w", lambda name, index, mode, gF_scale3=self.gF_scale3: callback(gF_scale3))
+        self.gF_scale4.trace("w", lambda name, index, mode, gF_scale4=self.gF_scale4: callback(gF_scale4))
         self.gF_ydisp1.trace("w", lambda name, index, mode, gF_ydisp1=self.gF_ydisp1: callback(gF_ydisp1))
         self.gF_ydisp2.trace("w", lambda name, index, mode, gF_ydisp2=self.gF_ydisp2: callback(gF_ydisp2))
         self.gF_ydisp3.trace("w", lambda name, index, mode, gF_ydisp3=self.gF_ydisp3: callback(gF_ydisp3))
+        self.gF_ydisp4.trace("w", lambda name, index, mode, gF_ydisp4=self.gF_ydisp4: callback(gF_ydisp4))
 
         # Menu bar at the top of the main window
         self.mBar = Frame(myParent, relief=RAISED, borderwidth=2)
@@ -1732,6 +1756,10 @@ class controller:
                 'gF_sigma3' : self.gF_sigma3.get(),
                 'gF_scale3' : self.gF_scale3.get(),
                 'gF_ydisp3' : self.gF_ydisp3.get(),
+                'gF_mu4' : self.gF_mu4.get(),
+                'gF_sigma4' : self.gF_sigma4.get(),
+                'gF_scale4' : self.gF_scale4.get(),
+                'gF_ydisp4' : self.gF_ydisp4.get(),
                 'gF_xmin' : self.gF_xmin.get(),
                 'gF_xmax' : self.gF_xmax.get(),
                 'gF_ymin' : self.gF_ymin.get(),
@@ -2672,10 +2700,69 @@ class controller:
             )
         self.ydisp3.grid(row=14, column=1)
 
-        Label(self.gauss_frame, text='Axis limits:', pady=10).grid(row=15,
+        Label(self.gauss_frame, text='Gaussian 4 settings:', pady=10).grid(row=15,
+                column=0, sticky=W)
+
+        Label(self.gauss_frame, text='Mu 4:').grid(row=16,
+                column=0, sticky=W)
+        self.mu4 = Spinbox(
+            self.gauss_frame,
+            from_=-10,
+            to=10,
+            increment=0.001,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.gF_mu4,
+            )
+        self.mu4.grid(row=16, column=1)
+
+        Label(self.gauss_frame, text='Sigma 4:').grid(row=17,
+                column=0, sticky=W)
+        self.sigma4 = Spinbox(
+            self.gauss_frame,
+            from_=-10,
+            to=10,
+            increment=0.001,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.gF_sigma4,
+            )
+        self.sigma4.grid(row=17, column=1)
+
+        Label(self.gauss_frame, text='Scale factor 4:').grid(row=18,
+                column=0, sticky=W)
+        self.scale4 = Spinbox(
+            self.gauss_frame,
+            from_=-10,
+            to=10,
+            increment=0.001,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.gF_scale4,
+            )
+        self.scale4.grid(row=18, column=1)
+
+        Label(self.gauss_frame, text='y-disp 4:').grid(row=19,
+                column=0, sticky=W)
+        self.ydisp4 = Spinbox(
+            self.gauss_frame,
+            from_=-10,
+            to=10,
+            increment=0.001,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.gF_ydisp4,
+            )
+        self.ydisp4.grid(row=19, column=1)
+            
+        Label(self.gauss_frame, text='Axis limits:', pady=10).grid(row=20,
                 column=0, sticky=W)
     
-        Label(self.gauss_frame, text='x-axis minimum:').grid(row=16,
+        Label(self.gauss_frame, text='x-axis minimum:').grid(row=21,
                 column=0, sticky=W)
         self.xmin = Spinbox(
             self.gauss_frame,
@@ -2687,9 +2774,9 @@ class controller:
             validate='all',
             textvariable=self.gF_xmin,
             )
-        self.xmin.grid(row=16, column=1)
+        self.xmin.grid(row=21, column=1)
 
-        Label(self.gauss_frame, text='x-axis maximum:').grid(row=17,
+        Label(self.gauss_frame, text='x-axis maximum:').grid(row=22,
                 column=0, sticky=W)
         self.xmax = Spinbox(
             self.gauss_frame,
@@ -2701,9 +2788,9 @@ class controller:
             validate='all',
             textvariable=self.gF_xmax,
             )
-        self.xmax.grid(row=17, column=1)
+        self.xmax.grid(row=22, column=1)
 
-        Label(self.gauss_frame, text='y-axis minimum:').grid(row=18,
+        Label(self.gauss_frame, text='y-axis minimum:').grid(row=23,
                 column=0, sticky=W)
         self.ymin = Spinbox(
             self.gauss_frame,
@@ -2715,9 +2802,9 @@ class controller:
             validate='all',
             textvariable=self.gF_ymin,
             )
-        self.ymin.grid(row=18, column=1)
+        self.ymin.grid(row=23, column=1)
 
-        Label(self.gauss_frame, text='y-axis maximum:').grid(row=19,
+        Label(self.gauss_frame, text='y-axis maximum:').grid(row=24,
                 column=0, sticky=W)
         self.ymax = Spinbox(
             self.gauss_frame,
@@ -2729,9 +2816,7 @@ class controller:
             validate='all',
             textvariable=self.gF_ymax,
             )
-        self.ymax.grid(row=19, column=1)
-
-       
+        self.ymax.grid(row=24, column=1)
 
     def plateau_fitting_params(self):
 
