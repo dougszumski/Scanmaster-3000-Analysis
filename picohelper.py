@@ -23,6 +23,9 @@ import numpy as np
 #negative tip-substrate bias. You may need to adjust this if you decrease your 
 #setpoint current
 scanAvgThreshold = 0.1
+    
+#Threshold level for an acceptable background leakage. Should normally be much lower unless in echem. environment with large tip leakage.
+backgroundThreshold = 1.0
 
 def fileoutput(filename,data_1,data_2,data_3,data_4):
     #Writes quad channel data to file 
@@ -31,6 +34,19 @@ def fileoutput(filename,data_1,data_2,data_3,data_4):
         for i in range(0, points):
             FILE.write('%s' % data_1[i] + '\t %s' % data_2[i] + '\t %s'
                        % data_3[i] + '\t %s \n' % data_4[i])
+
+def backgroundPresent(i_dat, bcorfac):
+    #Check background level is below a certain threshold
+    end = len(i_dat)
+    final_int = int(end * bcorfac) 
+    begin = int(end - final_int)
+    # Calculate the average of the background
+    fin_avg = sum(i_dat[begin:end]) / final_int
+    # Subtract the average from every current in the I(s) measurement
+    if (abs(fin_avg) < backgroundThreshold):
+        return True
+    else:
+        return False
 
 #Deal with the sys args
 if (len(sys.argv) == 3):
@@ -83,8 +99,11 @@ for scan in scanList:
     else:
         print "WARNING: Automatic polarity check failed: skipping file."
     #Output four columns of the same data TODO: Convert scanmaster so this isn't necessary
-    fileoutput((outputPath + "/" + scanName),i_list,i_list,i_list,i_list)
-    print "Saved scan of length ", scanLength, " points as: ", scanName
-    filecounter += 1
+    if backgroundPresent(i_list, 0.20):
+        fileoutput((outputPath + "/" + scanName),i_list,i_list,i_list,i_list)
+        print "Saved scan of length ", scanLength, " points as: ", scanName
+        filecounter += 1
+    else:
+        print "Scan ignored: Didn't decay below background threshold"
 
 print "Finished converting scans."
