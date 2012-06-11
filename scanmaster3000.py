@@ -143,7 +143,7 @@ def scanInput(name):
             position += data.interval
         return (i_dat_ls, i10_dat_ls, i_dat_hs, i10_dat_hs, s_dat_ls)
  
-def contourPlot():
+def contourPlot(savefig=False):
     """ Plots 2d histograms of current distance scans """
 
     # Generate list of all distances. This list will be the same length as the current list and therefore
@@ -184,15 +184,19 @@ def contourPlot():
     extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]  # Don't forget -1 means the last item in the list!
     
     plt.imshow(H, origin='lower', extent=extent, interpolation='nearest', norm=LogNorm(vmin=0.01, vmax=0.5))
-    cb = plt.colorbar(ticks=[0.01, 0.1, 0.5])
-    cb.set_ticklabels([0.01,0.1,0.5])
-
-    cb.set_label('log_10[counts] (normalised)')
-    plt.title('I(s) scan 2D histogram')
+    title = data.filename[0:string.rfind(data.filename, '/')]
+    plt.title(title, fontsize=10)
     plt.xlabel('Distance (nm)')
     plt.ylabel('log_10[current (nA)]')
-    plt.show()
-
+    if savefig:
+        #TODO: FIX ISSUE WITH COLORBAR
+        plt.savefig(title+"_2d.png", format='png')
+        plt.cla() 
+    else:
+        cb = plt.colorbar(ticks=[0.01, 0.1, 0.5])
+        cb.set_ticklabels([0.01,0.1,0.5])
+        cb.set_label('log_10[counts] (normalised)')
+        plt.show()
 
 def correlationHist():
     """Plots a 2D correlation histogram as per Makk et al."""
@@ -3004,7 +3008,7 @@ class controller:
         title = data.filename[0:string.rfind(data.filename, '/')]
         plt.title(title, fontsize=16)
         if savefig:
-            plt.savefig(title+".pdf", format='pdf')
+            plt.savefig(title+".png", format='png') # can also be pdf etc..
             plt.cla() 
         else:
             plt.show()
@@ -3074,7 +3078,7 @@ class controller:
         contents = os.listdir(os.getcwd())
         dirList = []
         for item in contents:
-            if (len(item) >= 8) and (item[:7] == "chopped") and (item[-4:] != ".pdf"):
+            if (len(item) >= 8) and (item[:7] == "chopped") and (item[-4:] != ".png"):
                 dirList.append(item)
         for directory in dirList:
             scans = os.listdir(os.path.abspath(directory))
@@ -3088,6 +3092,7 @@ class controller:
             datInput(start, finish, bcorfac)
             print "Generating current density plot..."
             self.kdePlot(True)
+            contourPlot(True)
         print "Automated plotting complete."
 
     def plat_syncer(self):
