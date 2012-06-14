@@ -1,7 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-#     Doug S. Szumski  <d.s.szumski@gmail.com>  05-04-2012
+#     Doug S. Szumski  <d.s.szumski@gmail.com>  14-06-2012
+#     with contributions from Richard Brooke
+#
 #     Processing and analysis script for quad channel STM module
 # 
 #     This program is free software; you can redistribute it and/or modify
