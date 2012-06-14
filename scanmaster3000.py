@@ -168,7 +168,7 @@ def contourPlot(savefig=False):
                 i_list.append(np.log10(value+offset))
             else:   
             #FIXME Shift negative data 'under the bed' for now
-                i_list.append(np.log10(0.00001+offset))
+                i_list.append(np.log10(1e-9+offset))
                 
             #i_list.append(np.log10(abs(value+offset)))
             #i_list.append(value) #uncomment for linear plot
