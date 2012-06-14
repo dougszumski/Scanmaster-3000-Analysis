@@ -78,6 +78,8 @@ class Data:
     #Initialise a load of lists / variables for global use
     #TODO Add functions to set/read these attributes rather than addressing the directly (good practice)
     def __init__(self):
+        #G0 in nS 
+        self.G0 = 77480.917 
         # Sampling distance interval - calculated in scaninput for each file
         self.interval = 0.00
         # Four current channels from the quad amp
@@ -185,20 +187,20 @@ def contourPlot(savefig=False):
     
     plt.imshow(H, origin='lower', extent=extent, interpolation='nearest', norm=LogNorm(vmin=0.01, vmax=0.5))
     title = data.filename[0:string.rfind(data.filename, '/')]
-    plt.title(title, fontsize=10)
+    plt.title(title, fontsize=8)
     plt.xlabel('Distance (nm)')
     plt.ylabel('log_10[current (nA)]')
+    cb = plt.colorbar(ticks=[0.01, 0.1, 0.5])
+    cb.set_ticklabels([0.01,0.1,0.5])
+    cb.set_label('log_10[counts] (normalised)')
     if savefig:
         #TODO: FIX ISSUE WITH COLORBAR
         plt.savefig(title+"_2d.png", format='png')
-        plt.cla() 
+        plt.close()
     else:
-        cb = plt.colorbar(ticks=[0.01, 0.1, 0.5])
-        cb.set_ticklabels([0.01,0.1,0.5])
-        cb.set_label('log_10[counts] (normalised)')
         plt.show()
 
-def correlationHist():
+def correlationHist(savefig=False):
     """Plots a 2D correlation histogram as per Makk et al."""
     
     #TODO: Turn this into a module?
@@ -206,6 +208,7 @@ def correlationHist():
     #Histogram settings from GUI
     numBins = controller.corrbins.get()
     logscale = controller.corrlogscale.get()
+    bias = controller.bias.get()
     if logscale: 
         print "Plotting 2D correlation histogram with log scale"
         histLowerLim = controller.corrcurrentmin.get()
@@ -290,15 +293,15 @@ def correlationHist():
     extent = [histLowerLim,histUpperLim,histLowerLim,histUpperLim] 
     cax = corrPlot.imshow(corrMatrix, origin='lower', extent=extent, cmap=acsnano, vmax = 1.0, vmin = -1.0, interpolation='nearest')
     cb = plt.colorbar(cax, shrink=0.75)
-    cb.set_label(r'$H_{i,j}^{corr}$', fontsize=15)
+    cb.set_label(r'$H_{i,j}^{corr}$', fontsize=18)
     corrPlot.contour(corrMatrix, origin='lower', extent=extent, cmap=black, vmax = 1.0, vmin = -1.0)
     corrPlot.set_aspect(1.)
     if logscale:
-        corrPlot.set_xlabel(r'$Log_{10}[I(nA)]$', fontsize =15)
-        corrPlot.set_ylabel(r'$Log_{10}[I(nA)]$', fontsize =15)
+        corrPlot.set_xlabel(r'$log_{10}(G/G_{0}$)', fontsize =18)
+        corrPlot.set_ylabel(r'$log_{10}(G/G_{0}$)', fontsize =18)
     else:
-        corrPlot.set_xlabel(r'$I(nA)$', fontsize =15)
-        corrPlot.set_ylabel(r'$I(nA)$', fontsize =15)
+        corrPlot.set_xlabel(r'$G/G_{0}$', fontsize =18)
+        corrPlot.set_ylabel(r'$G/G_{0}$', fontsize =18)
     corrPlot.grid(True, color='w', linestyle='-', which='major', linewidth=1)
 
     #Setup plot for histograms on the side
@@ -333,8 +336,14 @@ def correlationHist():
     #for i in range(len(scanHist)):
     #    axHisty = barh(i, scanHist[i], 1.0)
 
+    title = data.filename[0:string.rfind(data.filename, '/')]
+    plt.title(title, fontsize=10)
     plt.draw()
-    plt.show()
+    if savefig:
+        plt.savefig(title+"_ch.png", format='png')
+        plt.close()
+    else:
+        plt.show()
 
 def export_current_data():
     # Writes current array to file for external analysis
@@ -443,6 +452,7 @@ def datInput(start, finish, bcorfac):
         th_1 = controller.th_1.get()
         th_2 = controller.th_2.get()
         th_3 = controller.th_3.get() 
+        bias = controller.bias.get()
         gainfactor = controller.gainfactor.get()
         #Now have a look at the background levels on the HS channels to see if they've saturated
         end = len(i_dat_hs)
@@ -475,7 +485,7 @@ def datInput(start, finish, bcorfac):
             #Test for only one channel
             for i in range(len(i_dat_combined)):
                 #if i_dat_combined[i] 
-                i_dat_combined[i] = i_dat_combined[i] / (i_ls_res) * scale
+                i_dat_combined[i] = i_dat_combined[i] / (i_ls_res) * scale / (bias*data.G0) 
         else:
             #Stitch the channels together, using the least sensitive non-saturated channel (top down approach)
             for i in range(len(i_dat_combined)): 
@@ -483,34 +493,34 @@ def datInput(start, finish, bcorfac):
                     #Output below threshold so try and replace it with a higher sensitivity measurement
                     if (abs(i10_dat_ls[i]) > th_2):
                         #LSx10 channel is still in operation so use the measurment from there
-                        i_dat_combined[i] = i10_dat_ls[i] / (i_ls_res * gainfactor) * scale
+                        i_dat_combined[i] = i10_dat_ls[i] / (i_ls_res * gainfactor) * scale / (bias*data.G0) 
                     elif ((abs(i_dat_hs[i]) > th_3) and not sat_flag_hs1):
                         #Limiter is off, HSx1 channel is in operation
-                        i_dat_combined[i] = i_dat_hs[i] / i_hs_res * scale
+                        i_dat_combined[i] = i_dat_hs[i] / i_hs_res * scale / (bias*data.G0) 
                     elif not sat_flag_hs10:
                         #If HSx1 is below threshold then use the HSx10 channel regardless
-                        i_dat_combined[i] = i10_dat_hs[i] / (i_hs_res * gainfactor) * scale  
+                        i_dat_combined[i] = i10_dat_hs[i] / (i_hs_res * gainfactor) * scale / (bias*data.G0) 
                     elif not sat_flag_hs1:
                         #If the above fails because HSx10 is saturated fall back to HSx1 as that's the best we have
-                        i_dat_combined[i] = i_dat_hs[i] / i_hs_res * scale
+                        i_dat_combined[i] = i_dat_hs[i] / i_hs_res * scale / (bias*data.G0) 
                     else:
                         #If both HSx1 and HSx10 channels are saturated then use LSx10
                         #NOTE: In this case the measurement is probably useless for anything but a break junction
-                        i_dat_combined[i] = i10_dat_ls[i] / (i_ls_res * gainfactor) * scale  
+                        i_dat_combined[i] = i10_dat_ls[i] / (i_ls_res * gainfactor) * scale / (bias*data.G0) 
                 else:
-                    #LSx1 channel is fine so convert to current
-                    i_dat_combined[i] = i_dat_combined[i] / (i_ls_res) * scale
+                    #LSx1 channel is fine
+                    i_dat_combined[i] = i_dat_combined[i] / (i_ls_res) * scale / (bias*data.G0) 
 
-        #Now convert the individual channels to currents, could have convoluted this with the above
+        #Now convert the individual channels, could have convoluted this with the above
         #for efficiency at the expense of clarity
         #This isn't required really, but its nice to have on the graph plots for fine tuning
         for i in range(len(i_dat_ls)):
-                i_dat_ls[i] = i_dat_ls[i] / i_ls_res * scale
-                i10_dat_ls[i] = i10_dat_ls[i] / (i_ls_res * gainfactor) * scale
+                i_dat_ls[i] = i_dat_ls[i] / i_ls_res * scale / (bias*data.G0) 
+                i10_dat_ls[i] = i10_dat_ls[i] / (i_ls_res * gainfactor) * scale / (bias*data.G0) 
                 #TODO (low priority) If these are saturated they will appear as almost flat lines on the plot
                 #Notify the plotter not to plot them to avoid confusion?
-                if not sat_flag_hs1: i_dat_hs[i] = i_dat_hs[i] / i_hs_res * scale
-                if not sat_flag_hs10: i10_dat_hs[i] = i10_dat_hs[i] / (i_hs_res * gainfactor) * scale 
+                if not sat_flag_hs1: i_dat_hs[i] = i_dat_hs[i] / i_hs_res * scale / (bias*data.G0) 
+                if not sat_flag_hs10: i10_dat_hs[i] = i10_dat_hs[i] / (i_hs_res * gainfactor) * scale / (bias*data.G0) 
         
         #Correct the background: this is the important one
         i_dat_combined = back_correct(i_dat_combined, bcorfac)
@@ -592,7 +602,7 @@ def datInput(start, finish, bcorfac):
         if controller.check_dat.get() > 0:
             userinput(auto_name)
 
-def plat_sync(start, finish):
+def plat_sync():
     """Synchronises I(s) scans from G0 plateaus"""
     filecounter = 0
     #FIXME: these are used to convert the data from current back to volts - not ideal 
@@ -604,12 +614,13 @@ def plat_sync(start, finish):
     #Save current directory (should be at script level)
     original_directory = os.getcwd()
     #Make new directoy to work in:
-    working_dir = "psyncfiltered"
+    working_dir = data.filename[0:string.rfind(data.filename, '/')]+"_psf"
+    print "FILES SAVED HERE", working_dir
     if os.path.exists(working_dir) != True:
         os.mkdir(working_dir)
     try:
         os.chdir(os.path.abspath(working_dir))
-        for i in range(start-1, finish):
+        for i in range(len(data.i_dat_all_combined)):
             plat_avg, plat_loc, plat_crd = plat_seeker(data.i_dat_all_ls[i])
             n_plats = max(plat_crd)
             print "Found", n_plats, "plateau(s)"
@@ -1097,8 +1108,8 @@ class egraph:
         self.z = statistics.pdf(i_list, self.x, h=kde_bandwidth, kernel='E')
         
         #Plot KDE and histogram
-        self.g_ax.set_xlabel('Log [Current (nA)]')
-        self.g_ax.set_ylabel('Counts')
+        self.g_ax.set_xlabel(r'$log_{10}(G/G_{0}$)')
+        self.g_ax.set_ylabel(r'$Density$')
 
         #Set the title
         try:
@@ -1109,7 +1120,7 @@ class egraph:
 
         #Plot the graph
         self.g_ax.plot(self.x, self.z,'b', label='KDE', linewidth=3)
-        self.g_ax.text(self.g_xmin, self.g_ymax*0.95, ' ' + str(len(data.i_dat_all_combined)) + ' scans', {'color' : 'k', 'fontsize' : 16})
+        self.g_ax.text(self.g_xmin, self.g_ymax*0.95, ' ' + str(len(data.i_dat_all_combined)) + ' scans', {'color' : 'k', 'fontsize' : 18})
         self.g_ax.legend()
         self.g_ax.grid()
         self.canvas.show()
@@ -1164,8 +1175,8 @@ class egraph:
         
         #TODO: A lot of replication between here and confScanplot 
         #Plot KDE and histogram
-        self.g_ax.set_xlabel('Log [Current (nA)]')
-        self.g_ax.set_ylabel('Counts')
+        self.g_ax.set_xlabel(r'$log_{10}(G/G_{0}$)')
+        self.g_ax.set_ylabel(r'$Density$')
         self.g_ax.set_title(self.g_title)
         self.g_ax.set_xlim([self.g_xmin, self.g_xmax])
         self.g_ax.set_ylim([self.g_ymin, self.g_ymax])
@@ -1211,8 +1222,8 @@ class egraph:
         self.ax.plot(s_dat_ls, i10_dat_hs, 'r.', label='HS x10')
         self.ax.grid(True)
         self.ax.set_xlim([0, xlim])
-        self.ax.set_xlabel('Distance (nm)')
-        self.ax.set_ylabel('Current (nA)')
+        self.ax.set_xlabel(r'$Distance (nm)$')
+        self.ax.set_ylabel(r'$G/G_{0}$')
         self.ax.legend()
 
         # PLOT 2
@@ -1230,7 +1241,7 @@ class egraph:
                           'r', label='MSE:' + str(data.err))
         self.ax2.grid(True)
         self.ax2.set_xlim([0, xlim])
-        self.ax2.set_xlabel('Distance (nm)')
+        self.ax.set_xlabel(r'$Distance (nm)$')
         self.ax2.legend()
 
         # PLOT 3
@@ -1240,7 +1251,7 @@ class egraph:
         self.ax3.grid(True)
         self.ax3.set_ylim([0, ylim])
         self.ax3.set_xlim([0, xlim])
-        self.ax3.set_xlabel('Distance (nm)')
+        self.ax.set_xlabel(r'$Distance (nm)$')
         self.ax3.legend()
 
         self.canvas.show()
@@ -1294,6 +1305,7 @@ class controller:
         self.autocheck_pltfit = IntVar()
         self.auto_read = IntVar()
         self.clear_global_data = IntVar()
+        self.bias = DoubleVar()
 
         # Current Density plots
         self.xmin_cd = DoubleVar()
@@ -1398,7 +1410,7 @@ class controller:
             self.stavar.set(1)
             self.finvar.set(5)
             self.bcorfac.set(0.20)
-            self.xfac.set(2.00)
+            self.xfac.set(4.00)
             self.yfac.set(25000)
             self.currentScaleFactor.set(1e9)
             self.offset.set(0.00)
@@ -1407,13 +1419,14 @@ class controller:
             self.check_dat2.set(0)
             self.auto_read.set(0)
             self.clear_global_data.set(1)
+            self.bias.set(0.1)
 
             # Data filtering defaults:
             self.datfillogi.set(-1000)
 
             # Current density estimate plot:
-            self.xmin_cd.set(-2.0)
-            self.xmax_cd.set(5.0)
+            self.xmin_cd.set(-6.0)
+            self.xmax_cd.set(1.0)
             self.ymin_cd.set(0.0)
             self.ymax_cd.set(0.4) # Current density estimate plot:
             self.bins_cd.set(1000)
@@ -1432,8 +1445,8 @@ class controller:
             # Contour plot parameter defaults
             self.xmin_contour.set(0.00)
             self.xmax_contour.set(3.0)
-            self.ymin_contour.set(-2.0)
-            self.ymax_contour.set(5.0)
+            self.ymin_contour.set(-6.0)
+            self.ymax_contour.set(1.0)
             self.xbin_contour.set(250)
             self.ybin_contour.set(250)
 
@@ -1454,14 +1467,14 @@ class controller:
             self.gF_sigma4.set(0.17)
             self.gF_scale4.set(0.0145)
             self.gF_ydisp4.set(0.00)
-            self.gF_xmin.set(-1.0)
-            self.gF_xmax.set(5.0)
+            self.gF_xmin.set(-4.0)
+            self.gF_xmax.set(2.0)
             self.gF_ymin.set(0.0)
             self.gF_ymax.set(0.25)
 
             # 2D Correlation plot parameter defaults
-            self.corrcurrentmin.set(-1.0)
-            self.corrcurrentmax.set(5.0)
+            self.corrcurrentmin.set(-5.0)
+            self.corrcurrentmax.set(1.0)
             self.corrbins.set(300)
             self.corrlogscale.set(1)
 
@@ -1504,7 +1517,8 @@ class controller:
                 self.check_dat.set(data[ 'check_dat'])  
                 self.check_dat2.set(data[ 'check_dat2'])  
                 self.auto_read.set(data[ 'auto_read'])  
-                self.clear_global_data.set(data[ 'clear_global_data'])  
+                self.clear_global_data.set(data[ 'clear_global_data']) 
+                self.bias.set(data[ 'bias']) 
                 self.datfillogi.set(data[ 'datfillogi'])  
                 self.xmin_cd.set(data[ 'xmin_cd'])  
                 self.xmax_cd.set(data[ 'xmax_cd'])  
@@ -1727,6 +1741,7 @@ class controller:
                 'check_dat2' : self.check_dat2.get(),
                 'auto_read' : self.auto_read.get(),
                 'clear_global_data' : self.clear_global_data.get(),
+                'bias' : self.bias.get(),
                 'datfillogi' : self.datfillogi.get(),
                 'xmin_cd' : self.xmin_cd.get(),
                 'xmax_cd' : self.xmax_cd.get(),
@@ -2312,6 +2327,20 @@ class controller:
             )
         self.yfactor.grid(row=6, column=1)
 
+        Label(self.data_frame, text='Tip sample bias (V):'
+              ).grid(row=7, column=0, sticky=W)
+        self.Bias = Spinbox(
+            self.data_frame,
+            from_=0.1,
+            to=10.0,
+            increment=0.01,
+            width=10,
+            wrap=True,
+            validate='all',
+            textvariable=self.bias,
+            )
+        self.Bias.grid(row=7, column=1)
+
     def adc_params(self):
 
         # Configure the ADC / STM parameters
@@ -2762,7 +2791,7 @@ class controller:
             textvariable=self.gF_ydisp4,
             )
         self.ydisp4.grid(row=19, column=1)
-            
+
         Label(self.gauss_frame, text='Axis limits:', pady=10).grid(row=20,
                 column=0, sticky=W)
     
@@ -2995,10 +3024,10 @@ class controller:
         plt.hist(i_list, bins=bins, facecolor='black', normed=1)
         plt.plot(x, z,'b', label='KDE', linewidth=3)
         plt.axis([xmin, xmax, ymin, ymax])
-        plt.legend()
+        plt.legend(bbox_to_anchor=(1.05, 1),loc=2,borderaxespad=0.)
         plt.grid()
-        plt.ylabel('Density', fontsize=14)
-        plt.xlabel('log_10[current (nanoamps)]', fontsize=14)       
+        plt.ylabel(r'$Density$', fontsize=18)
+        plt.xlabel(r'$log_{10}(G/G_{0}$)', fontsize=18)       
         if self.kdePeakLabel.get():
             plt.annotate(str(HC)[0:5], (HC, max(zSS)*1.2),
                 xytext=(0.5, 0.5), textcoords='axes fraction',
@@ -3031,8 +3060,8 @@ class controller:
         print 'Lists appended, found:', len(i_list), 'data points.'
         plt.hist(i_list, bins=2000, facecolor='black', normed=1)
         plt.grid()
-        plt.ylabel('Density', fontsize=14)
-        plt.xlabel('current (nanoamps)', fontsize=14)
+        plt.ylabel(r'$Density$', fontsize=18)
+        plt.xlabel(r'$G/G_{0}$', fontsize=18)
         plt.show()
 
     def inputRange(self):
@@ -3091,21 +3120,24 @@ class controller:
                 data.clear_current_lists()
             datInput(start, finish, bcorfac)
             print "Generating current density plot..."
-            self.kdePlot(True)
-            contourPlot(True)
+            #self.kdePlot(True)
+            #contourPlot(True)
+            #print "Syncing scans"
+            #plat_sync()
+            correlationHist(True)
         print "Automated plotting complete."
-
+        
     def plat_syncer(self):
         """ Sync the I(s) scans to the start or end of a G0 plateau """
         start, finish = self.inputRange()
-        plat_sync(start, finish)
+        plat_sync()
 
     def importdata(self):
         # Needs to call tea break maker
         tea_break_maker()
    
 root = Tk()
-root.title('Scanmaster 3000 v0.58')
+root.title('Scanmaster 3000 v0.59')
 egraph = egraph(root)
 #Create the data container
 data = Data()
