@@ -187,14 +187,14 @@ def contourPlot(savefig=False):
     (H.shape, xedges.shape, yedges.shape)
     extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]  # Don't forget -1 means the last item in the list!
     
-    plt.imshow(H, origin='lower', extent=extent, interpolation='nearest', norm=LogNorm(vmin=0.01, vmax=0.5))
+    plt.imshow(H, origin='lower', extent=extent, interpolation='nearest', norm=LogNorm(vmin=0.01, vmax=1.0))
     title = data.filename[0:string.rfind(data.filename, '/')]
     plt.title(title, fontsize=8)
-    plt.xlabel('Distance (nm)')
-    plt.ylabel('log_10[current (nA)]')
-    cb = plt.colorbar(ticks=[0.01, 0.1, 0.5])
-    cb.set_ticklabels([0.01,0.1,0.5])
-    cb.set_label('log_10[counts] (normalised)')
+    plt.xlabel(r'$Distance (nm)$', fontsize =18) 
+    plt.ylabel(r'$log_{10}(G/G_{0}$)', fontsize =18)
+    cb = plt.colorbar(ticks=[0.01, 0.1, 1.0])
+    cb.set_ticklabels([0.01,0.1,1.0])
+    cb.set_label(r'$log_{10}[density]$', fontsize =18)
     if savefig:
         #TODO: FIX ISSUE WITH COLORBAR
         plt.savefig(title+"_2d.png", format='png')
